@@ -75,16 +75,16 @@ function App() {
                 ))}
               </AnimatePresence>
             </div>
-
-            {/* Remaining todos counter and motivational quote */}
-            <div className="mt-6">
-              <div className="text-lg font-semibold text-foreground mb-2">
-                Your remaining todos: {remainingTasks}
-              </div>
-              <Quote />
-            </div>
           </motion.div>
         )}
+
+        {/* Remaining todos counter and motivational quote */}
+        <div className="mt-6 w-full max-w-xl">
+          <div className="text-lg font-semibold text-foreground mb-2">
+            Your remaining todos: {remainingTasks}
+          </div>
+          <Quote />
+        </div>
       </motion.div>
     </>
   );
