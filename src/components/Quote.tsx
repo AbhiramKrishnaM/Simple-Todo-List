@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { motion } from "motion/react";
 import { useQuotesStore } from "@/store/quotes";
 import { Quote as QuoteIcon } from "lucide-react";
