@@ -4,9 +4,10 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { Task } from "@/types";
 
 type AddTaskProps = {
-  onAdd?: (value: string) => void;
+  onAdd?: (task: Task) => void;
   placeholder?: string;
   className?: string;
 };
@@ -22,7 +23,16 @@ export default function AddTask({
     if (event) event.preventDefault();
     const trimmed = value.trim();
     if (!trimmed) return;
-    onAdd?.(trimmed);
+
+    const task: Task = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: trimmed,
+      priority: 1,
+      timestamp: Date.now(),
+      meta: {},
+    };
+
+    onAdd?.(task);
     setValue("");
   }
 

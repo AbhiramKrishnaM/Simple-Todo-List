@@ -5,6 +5,7 @@ export interface TaskMeta {
 }
 
 export interface Task {
+  id: string;
   title: string;
   timestamp: number;
   priority: TaskPriority;
