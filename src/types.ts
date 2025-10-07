@@ -9,5 +9,6 @@ export interface Task {
   title: string;
   timestamp: number;
   priority: TaskPriority;
+  completed: boolean;
   meta?: TaskMeta;
 }

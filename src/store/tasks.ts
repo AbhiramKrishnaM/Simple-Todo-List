@@ -7,12 +7,16 @@ type TasksState = {
   createTask: (
     input: Omit<Task, "id" | "timestamp"> & Partial<Pick<Task, "timestamp">>
   ) => Task;
-  addTask: (task: Task) => void; // keep for compatibility if caller builds Task
+
+  addTask: (task: Task) => void;
+
   removeTask: (taskId: string) => void;
+
   updateTask: (taskId: string, updates: Partial<Omit<Task, "id">>) => void;
 
   getTasks: () => Task[];
   setTasks: (tasks: Task[]) => void;
+
   clearTasks: () => void;
 };
 
@@ -25,6 +29,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       title: input.title,
       priority: input.priority,
       timestamp: input.timestamp ?? Date.now(),
+      completed: input.completed ?? false,
       meta: input.meta ?? {},
     };
     set((state) => ({ tasks: [task, ...state.tasks] }));

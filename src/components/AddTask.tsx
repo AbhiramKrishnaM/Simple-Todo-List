@@ -30,6 +30,7 @@ export default function AddTask({
       title: trimmed,
       priority: 1,
       timestamp: Date.now(),
+      completed: false,
       meta: {},
     };
 

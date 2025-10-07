@@ -1,3 +1,4 @@
+import * as React from "react";
 import AddTask from "./components/AddTask";
 import TaskCard from "./components/TaskCard";
 import type { Task } from "./types";
@@ -9,6 +10,17 @@ function App() {
   const addTask = useTasksStore((s) => s.addTask);
   const updateTask = useTasksStore((s) => s.updateTask);
   const removeTask = useTasksStore((s) => s.removeTask);
+
+  // Sort tasks locally to avoid infinite re-renders
+  const sortedTasks = React.useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1;
+      }
+      return a.timestamp - b.timestamp;
+    });
+  }, [tasks]);
+
   const hasTasks = tasks.length > 0;
 
   function handleAdd(task: Task) {
@@ -41,20 +53,13 @@ function App() {
           >
             <div className="flex flex-col gap-4">
               <AnimatePresence mode="popLayout">
-                {tasks.map((t) => (
+                {sortedTasks.map((t) => (
                   <TaskCard
                     key={t.id}
                     task={t}
-                    checked={(() => {
-                      const val = (
-                        t.meta as Record<string, unknown> | undefined
-                      )?.done;
-                      return typeof val === "boolean" ? val : false;
-                    })()}
+                    checked={t.completed}
                     onToggle={(id, checked) =>
-                      updateTask(id, {
-                        meta: { ...(t.meta ?? {}), done: checked },
-                      })
+                      updateTask(id, { completed: checked })
                     }
                     onRemove={(id) => removeTask(id)}
                   />
