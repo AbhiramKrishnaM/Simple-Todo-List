@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
+import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +38,12 @@ export default function AddTask({
   }
 
   return (
-    <form
+    <motion.form
       onSubmit={handleSubmit}
       className={cn("flex items-center gap-3 w-full max-w-xl", className)}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
     >
       <Input
         value={value}
@@ -51,15 +55,21 @@ export default function AddTask({
         }
         aria-label={placeholder}
       />
-      <Button
-        type="submit"
-        size="icon-sm"
-        variant="outline"
-        aria-label="Add task"
-        className="cursor-pointer"
+      <motion.div
+        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.05 }}
+        transition={{ duration: 0.1 }}
       >
-        <Plus />
-      </Button>
-    </form>
+        <Button
+          type="submit"
+          size="icon-sm"
+          variant="outline"
+          aria-label="Add task"
+          className="cursor-pointer"
+        >
+          <Plus />
+        </Button>
+      </motion.div>
+    </motion.form>
   );
 }
