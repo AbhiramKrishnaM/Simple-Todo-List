@@ -52,7 +52,7 @@ export default function AddTask({
         placeholder={placeholder}
         className={
           // bottom-border only styling to match the UI reference
-          "rounded-none border-0 border-b border-input px-0 focus-visible:ring-0 focus-visible:border-ring"
+          "rounded-none border-0 border-b border-input px-2 focus-visible:ring-0 focus-visible:border-ring"
         }
         aria-label={placeholder}
       />

@@ -4,6 +4,7 @@ import TaskCard from "./components/TaskCard";
 import type { Task } from "./types";
 import { useTasksStore } from "./store/tasks";
 import { motion, AnimatePresence } from "motion/react";
+import ModeToggle from "@/components/ModeToggle";
 
 function App() {
   const tasks = useTasksStore((s) => s.tasks);
@@ -37,9 +38,15 @@ function App() {
         layout
         transition={{ duration: 0.4, ease: "easeInOut" }}
       >
+        {/* Global top-right controls */}
+        <div className="fixed right-4 top-4 z-50">
+          <ModeToggle />
+        </div>
         {/* Header + input; behaves like a fixed header once tasks exist */}
         <div className="w-full max-w-xl">
-          <div className="text-2xl font-bold text-gray-700">Your To Do</div>
+          <div className="mb-2 text-2xl font-bold text-foreground">
+            Your To Do
+          </div>
           <AddTask onAdd={handleAdd} />
         </div>
 
