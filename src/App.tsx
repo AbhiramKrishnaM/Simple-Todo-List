@@ -1,6 +1,7 @@
 import * as React from "react";
 import AddTask from "./components/AddTask";
 import TaskCard from "./components/TaskCard";
+import Quote from "./components/Quote";
 import type { Task } from "./types";
 import { useTasksStore } from "./store/tasks";
 import { motion, AnimatePresence } from "motion/react";
@@ -23,6 +24,7 @@ function App() {
   }, [tasks]);
 
   const hasTasks = tasks.length > 0;
+  const remainingTasks = tasks.filter((task) => !task.completed).length;
 
   function handleAdd(task: Task) {
     addTask(task);
@@ -72,6 +74,14 @@ function App() {
                   />
                 ))}
               </AnimatePresence>
+            </div>
+
+            {/* Remaining todos counter and motivational quote */}
+            <div className="mt-6">
+              <div className="text-lg font-semibold text-foreground mb-2">
+                Your remaining todos: {remainingTasks}
+              </div>
+              <Quote />
             </div>
           </motion.div>
         )}
