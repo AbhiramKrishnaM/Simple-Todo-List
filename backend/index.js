@@ -12,13 +12,14 @@ const PORT = process.env.PORT || 3000;
 const corsOptions = {
   origin: [
     "https://simple-todo-list-roan.vercel.app",
-    "http://localhost:5173", // For local development
-    "http://localhost:3000", // For local development
+    "https://abhiramkrishna.com",
+    "https://api.abhiramkrishna.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
   ],
   credentials: true,
   optionsSuccessStatus: 200,
 };
-
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
