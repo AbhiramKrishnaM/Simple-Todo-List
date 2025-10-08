@@ -10,7 +10,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const corsOptions = {
-  origin: ["*"],
+  origin: [
+    "https://simple-todo-list-roan.vercel.app",
+    "http://localhost:5173", // For local development
+    "http://localhost:3000", // For local development
+  ],
   credentials: true,
   optionsSuccessStatus: 200,
 };
