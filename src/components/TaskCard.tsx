@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 type TaskCardProps = {
   task: Task;
   checked?: boolean;
-  onToggle?: (taskId: string, checked: boolean) => void;
+  onToggle?: (taskId: string) => void;
   onRemove?: (taskId: string) => void;
   className?: string;
 };
@@ -30,7 +30,7 @@ export default function TaskCard({
 
   function handleCheckedChange(next: boolean) {
     setIsChecked(next);
-    onToggle?.(task.id, next);
+    onToggle?.(task.id);
   }
 
   function handleRemove() {

@@ -9,9 +9,16 @@ import ModeToggle from "@/components/ModeToggle";
 
 function App() {
   const tasks = useTasksStore((s) => s.tasks);
-  const addTask = useTasksStore((s) => s.addTask);
-  const updateTask = useTasksStore((s) => s.updateTask);
+  const fetchTasks = useTasksStore((s) => s.fetchTasks);
+  const createTask = useTasksStore((s) => s.createTask);
+  const toggleTask = useTasksStore((s) => s.toggleTask);
   const removeTask = useTasksStore((s) => s.removeTask);
+  const error = useTasksStore((s) => s.error);
+
+  // Fetch tasks on mount
+  React.useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
   // Sort tasks locally to avoid infinite re-renders
   const sortedTasks = React.useMemo(() => {
@@ -26,8 +33,33 @@ function App() {
   const hasTasks = tasks.length > 0;
   const remainingTasks = tasks.filter((task) => !task.completed).length;
 
-  function handleAdd(task: Task) {
-    addTask(task);
+  async function handleAdd(task: Task) {
+    try {
+      await createTask({
+        title: task.title,
+        priority: task.priority,
+        completed: task.completed,
+        meta: task.meta,
+      });
+    } catch (error) {
+      console.error("Failed to add task:", error);
+    }
+  }
+
+  async function handleToggle(id: string) {
+    try {
+      await toggleTask(id);
+    } catch (error) {
+      console.error("Failed to toggle task:", error);
+    }
+  }
+
+  async function handleRemove(id: string) {
+    try {
+      await removeTask(id);
+    } catch (error) {
+      console.error("Failed to remove task:", error);
+    }
   }
 
   return (
@@ -50,6 +82,11 @@ function App() {
             Your To Do
           </div>
           <AddTask onAdd={handleAdd} />
+          {error && (
+            <div className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
         </div>
 
         {hasTasks && (
@@ -67,10 +104,8 @@ function App() {
                     key={t.id}
                     task={t}
                     checked={t.completed}
-                    onToggle={(id, checked) =>
-                      updateTask(id, { completed: checked })
-                    }
-                    onRemove={(id) => removeTask(id)}
+                    onToggle={(id) => handleToggle(id)}
+                    onRemove={(id) => handleRemove(id)}
                   />
                 ))}
               </AnimatePresence>
