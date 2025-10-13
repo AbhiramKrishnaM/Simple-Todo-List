@@ -1,5 +1,5 @@
 import * as React from "react";
-import { X, Clock } from "lucide-react";
+import { X } from "lucide-react";
 import { motion } from "motion/react";
 
 import type { Task } from "@/types";
