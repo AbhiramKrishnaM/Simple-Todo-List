@@ -89,19 +89,6 @@ export default function TaskCard({
         {task.title}
       </motion.span>
 
-      {/* Auto-deletion timer indicator */}
-      {isChecked && hasAutoDeleteTimer && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex items-center gap-1 text-xs text-orange-500"
-          title="Will be auto-deleted soon"
-        >
-          <Clock className="size-3" />
-          <span>Auto-delete</span>
-        </motion.div>
-      )}
-
       <Button
         type="button"
         size="icon-sm"
