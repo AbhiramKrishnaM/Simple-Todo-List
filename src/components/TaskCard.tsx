@@ -6,7 +6,6 @@ import type { Task } from "@/types";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { useTasksStore } from "@/store/tasks";
 
 type TaskCardProps = {
   task: Task;
@@ -24,10 +23,6 @@ export default function TaskCard({
   className,
 }: TaskCardProps) {
   const [isChecked, setIsChecked] = React.useState<boolean>(Boolean(checked));
-  const completedTaskTimers = useTasksStore((s) => s.completedTaskTimers);
-
-  // Check if this task has an auto-deletion timer scheduled
-  const hasAutoDeleteTimer = completedTaskTimers.has(task.id);
 
   React.useEffect(() => {
     if (typeof checked === "boolean") setIsChecked(checked);
