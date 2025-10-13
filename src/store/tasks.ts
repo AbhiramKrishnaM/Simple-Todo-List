@@ -7,6 +7,10 @@ type TasksState = {
   isLoading: boolean;
   error: string | null;
 
+  // Timer management for auto-deletion
+  completedTaskTimers: Map<string, number>;
+  autoDeleteDelay: number; // Delay in milliseconds (4 hours = 4 * 60 * 60 * 1000)
+
   // Fetch all tasks from API
   fetchTasks: () => Promise<void>;
 
@@ -30,6 +34,11 @@ type TasksState = {
   // Toggle task completion via API
   toggleTask: (taskId: string) => Promise<void>;
 
+  // Timer management methods
+  scheduleAutoDelete: (taskId: string) => void;
+  cancelAutoDelete: (taskId: string) => void;
+  clearAllTimers: () => void;
+
   // Local state management
   getTasks: () => Task[];
   setTasks: (tasks: Task[]) => void;
@@ -43,6 +52,10 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   tasks: [],
   isLoading: false,
   error: null,
+
+  // Timer management state
+  completedTaskTimers: new Map(),
+  autoDeleteDelay: 4 * 60 * 60 * 1000, // 4 hours in milliseconds (change to 10 * 1000 for testing)
 
   fetchTasks: async () => {
     set({ isLoading: true, error: null });
@@ -83,6 +96,9 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   addTask: (task) => set((state) => ({ tasks: [task, ...state.tasks] })),
 
   removeTask: async (taskId) => {
+    // Cancel any pending auto-deletion timer
+    get().cancelAutoDelete(taskId);
+
     set({ isLoading: true, error: null });
     // Optimistic update
     const previousTasks = get().tasks;
@@ -149,6 +165,14 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         tasks: state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
         isLoading: false,
       }));
+
+      // Schedule auto-deletion if task is now completed
+      if (updatedTask.completed) {
+        get().scheduleAutoDelete(taskId);
+      } else {
+        // Cancel auto-deletion if task is uncompleted
+        get().cancelAutoDelete(taskId);
+      }
     } catch (error) {
       // Revert on error
       set({ tasks: previousTasks });
@@ -181,6 +205,65 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       console.error("Error clearing tasks:", error);
       throw error;
     }
+  },
+
+  // Timer management methods
+  scheduleAutoDelete: (taskId) => {
+    const { completedTaskTimers, autoDeleteDelay } = get();
+
+    // Clear existing timer if any
+    if (completedTaskTimers.has(taskId)) {
+      clearTimeout(completedTaskTimers.get(taskId)!);
+    }
+
+    // Set new timer
+    const timer = setTimeout(() => {
+      const task = get().tasks.find((t) => t.id === taskId);
+      console.log(
+        `🕒 Auto-deleting completed task: "${task?.title || taskId}" after ${
+          autoDeleteDelay / 1000
+        } seconds`
+      );
+      get().removeTask(taskId);
+      // Clean up timer reference
+      set((state) => {
+        const newTimers = new Map(state.completedTaskTimers);
+        newTimers.delete(taskId);
+        return { completedTaskTimers: newTimers };
+      });
+    }, autoDeleteDelay);
+
+    // Store timer reference
+    set((state) => {
+      const newTimers = new Map(state.completedTaskTimers);
+      newTimers.set(taskId, timer);
+      return { completedTaskTimers: newTimers };
+    });
+  },
+
+  cancelAutoDelete: (taskId) => {
+    const { completedTaskTimers } = get();
+
+    if (completedTaskTimers.has(taskId)) {
+      clearTimeout(completedTaskTimers.get(taskId)!);
+      set((state) => {
+        const newTimers = new Map(state.completedTaskTimers);
+        newTimers.delete(taskId);
+        return { completedTaskTimers: newTimers };
+      });
+    }
+  },
+
+  clearAllTimers: () => {
+    const { completedTaskTimers } = get();
+
+    // Clear all timers
+    completedTaskTimers.forEach((timer) => {
+      clearTimeout(timer);
+    });
+
+    // Clear the map
+    set({ completedTaskTimers: new Map() });
   },
 
   setError: (error) => set({ error }),

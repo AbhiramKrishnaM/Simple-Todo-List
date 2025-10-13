@@ -1,11 +1,12 @@
 import * as React from "react";
-import { X } from "lucide-react";
+import { X, Clock } from "lucide-react";
 import { motion } from "motion/react";
 
 import type { Task } from "@/types";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { useTasksStore } from "@/store/tasks";
 
 type TaskCardProps = {
   task: Task;
@@ -23,6 +24,10 @@ export default function TaskCard({
   className,
 }: TaskCardProps) {
   const [isChecked, setIsChecked] = React.useState<boolean>(Boolean(checked));
+  const completedTaskTimers = useTasksStore((s) => s.completedTaskTimers);
+
+  // Check if this task has an auto-deletion timer scheduled
+  const hasAutoDeleteTimer = completedTaskTimers.has(task.id);
 
   React.useEffect(() => {
     if (typeof checked === "boolean") setIsChecked(checked);
@@ -83,6 +88,19 @@ export default function TaskCard({
       >
         {task.title}
       </motion.span>
+
+      {/* Auto-deletion timer indicator */}
+      {isChecked && hasAutoDeleteTimer && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex items-center gap-1 text-xs text-orange-500"
+          title="Will be auto-deleted soon"
+        >
+          <Clock className="size-3" />
+          <span>Auto-delete</span>
+        </motion.div>
+      )}
 
       <Button
         type="button"
