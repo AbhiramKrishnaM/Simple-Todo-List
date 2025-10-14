@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cron from "node-cron";
 import pool, { initDatabase } from "./db.js";
 import taskRoutes from "./routes/tasks.js";
 
@@ -66,16 +67,56 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Cron job to auto-delete completed tasks after 4 hours
+const cleanupCompletedTasks = async () => {
+  try {
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+
+    const result = await pool.query(
+      `DELETE FROM tasks 
+       WHERE completed = true 
+       AND completed_at IS NOT NULL 
+       AND completed_at < $1 
+       RETURNING id, title`,
+      [fourHoursAgo]
+    );
+
+    if (result.rows.length > 0) {
+      console.log(
+        `🗑️  Auto-deleted ${result.rows.length} completed task(s):`,
+        result.rows.map((row) => `"${row.title}"`).join(", ")
+      );
+    }
+  } catch (error) {
+    console.error("❌ Error in cleanup cron job:", error);
+  }
+};
+
+// Schedule cron job to run every hour
+// Cron pattern: '0 * * * *' means at minute 0 of every hour
+cron.schedule("0 * * * *", cleanupCompletedTasks, {
+  scheduled: true,
+  timezone: "UTC",
+});
+
+console.log("⏰ Scheduled auto-deletion cron job to run every hour");
+
 // Initialize database and start server
 const startServer = async () => {
   try {
     // Initialize database tables
     await initDatabase();
 
+    // Run cleanup immediately on startup (optional)
+    await cleanupCompletedTasks();
+
     // Start server
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📝 API endpoint: http://localhost:${PORT}/api/tasks`);
+      console.log(
+        `⏰ Auto-deletion: Completed tasks will be deleted after 4 hours`
+      );
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);

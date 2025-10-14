@@ -37,7 +37,8 @@ export const initDatabase = async () => {
         completed BOOLEAN DEFAULT FALSE,
         meta JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP
       )
     `);
 
@@ -48,6 +49,10 @@ export const initDatabase = async () => {
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed)
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at)
     `);
 
     console.log("Database tables initialized successfully");

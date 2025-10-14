@@ -187,25 +187,39 @@ router.patch("/:id/toggle", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      `UPDATE tasks 
-       SET completed = NOT completed, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING *`,
+    // First get the current task to check its completion status
+    const currentTask = await pool.query(
+      "SELECT completed FROM tasks WHERE id = $1",
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (currentTask.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: "Task not found",
       });
     }
 
+    const currentCompleted = currentTask.rows[0].completed;
+    const newCompleted = !currentCompleted;
+
+    // Update task with new completion status and completed_at timestamp
+    // If marking as completed, set completed_at to now
+    // If marking as incomplete, set completed_at to null
+    const result = await pool.query(
+      `UPDATE tasks 
+       SET completed = $1, 
+           completed_at = CASE WHEN $1 = true THEN CURRENT_TIMESTAMP ELSE NULL END,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING *`,
+      [newCompleted, id]
+    );
+
     res.json({
       success: true,
       data: result.rows[0],
-      message: "Task completion toggled successfully",
+      message: `Task ${newCompleted ? 'completed' : 'marked as incomplete'}`,
     });
   } catch (error) {
     console.error("Error toggling task:", error);

@@ -13,13 +13,15 @@ CREATE TABLE IF NOT EXISTS tasks (
   completed BOOLEAN DEFAULT FALSE,
   meta JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
 );
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_tasks_timestamp ON tasks(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at);
 
 -- Optional: Insert sample data
 -- INSERT INTO tasks (id, title, timestamp, priority, completed, meta) VALUES

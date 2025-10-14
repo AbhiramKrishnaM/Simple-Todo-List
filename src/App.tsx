@@ -13,28 +13,12 @@ function App() {
   const createTask = useTasksStore((s) => s.createTask);
   const toggleTask = useTasksStore((s) => s.toggleTask);
   const removeTask = useTasksStore((s) => s.removeTask);
-  const scheduleAutoDelete = useTasksStore((s) => s.scheduleAutoDelete);
-  const completedTaskTimers = useTasksStore((s) => s.completedTaskTimers);
   const error = useTasksStore((s) => s.error);
 
   // Fetch tasks on mount
   React.useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
-
-  // Schedule auto-deletion timers for existing completed tasks
-  React.useEffect(() => {
-    const completedTasks = tasks.filter((task) => task.completed);
-    completedTasks.forEach((task) => {
-      // Only schedule if not already scheduled
-      if (!completedTaskTimers.has(task.id)) {
-        console.log(
-          `⏰ Scheduling auto-deletion for completed task: "${task.title}"`
-        );
-        scheduleAutoDelete(task.id);
-      }
-    });
-  }, [tasks, completedTaskTimers, scheduleAutoDelete]);
 
   // Sort tasks locally to avoid infinite re-renders
   const sortedTasks = React.useMemo(() => {
