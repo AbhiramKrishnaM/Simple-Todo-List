@@ -13,8 +13,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
 } from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
@@ -30,6 +31,9 @@ function App() {
   const removeTask = useTasksStore((s) => s.removeTask);
   const reorderTasks = useTasksStore((s) => s.reorderTasks);
   const error = useTasksStore((s) => s.error);
+
+  // Track the active dragging item
+  const [activeId, setActiveId] = React.useState<string | null>(null);
 
   // Fetch tasks on mount
   React.useEffect(() => {
@@ -95,10 +99,15 @@ function App() {
     }
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
     if (!over || active.id === over.id) {
+      setActiveId(null);
       return;
     }
 
@@ -120,7 +129,18 @@ function App() {
         console.error("Failed to reorder tasks:", error);
       }
     }
+
+    setActiveId(null);
   }
+
+  function handleDragCancel() {
+    setActiveId(null);
+  }
+
+  // Find the active task being dragged
+  const activeTask = activeId
+    ? uncompletedTasks.find((task) => task.id === activeId)
+    : null;
 
   return (
     <>
@@ -160,7 +180,9 @@ function App() {
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
             >
               <div className="flex flex-col gap-4">
                 {/* Uncompleted tasks - draggable */}
@@ -194,6 +216,26 @@ function App() {
                   ))}
                 </AnimatePresence>
               </div>
+
+              {/* Drag Overlay - shows the card being dragged */}
+              <DragOverlay
+                dropAnimation={{
+                  duration: 200,
+                  easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+                }}
+              >
+                {activeTask ? (
+                  <div className="rotate-3 scale-105 cursor-grabbing shadow-2xl">
+                    <TaskCard
+                      task={activeTask}
+                      checked={activeTask.completed}
+                      onToggle={() => {}}
+                      onRemove={() => {}}
+                      className="shadow-2xl ring-2 ring-primary/20"
+                    />
+                  </div>
+                ) : null}
+              </DragOverlay>
             </DndContext>
           </motion.div>
         )}

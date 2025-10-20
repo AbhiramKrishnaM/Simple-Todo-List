@@ -59,13 +59,13 @@ export default function TaskCard({
       style={style}
       className={cn(
         "flex w-full items-center gap-3 rounded-2xl border border-input px-4 py-3 shadow-sm bg-background",
-        isDragging && "opacity-50 shadow-lg z-50",
+        isDragging && "opacity-0",
         className
       )}
       role="group"
       layout
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      animate={{ opacity: isDragging ? 0 : 1, y: 0, scale: 1 }}
       exit={{
         opacity: 0,
         x: 300,
