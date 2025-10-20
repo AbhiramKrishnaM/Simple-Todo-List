@@ -35,6 +35,9 @@ type TasksState = {
   setTasks: (tasks: Task[]) => void;
   clearTasks: () => Promise<void>;
 
+  // Reorder tasks
+  reorderTasks: (tasks: Task[]) => Promise<void>;
+
   // Error handling
   setError: (error: string | null) => void;
 };
@@ -179,6 +182,38 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         error instanceof Error ? error.message : "Failed to clear tasks";
       set({ error: errorMessage, isLoading: false });
       console.error("Error clearing tasks:", error);
+      throw error;
+    }
+  },
+
+  reorderTasks: async (reorderedTasks) => {
+    // Optimistic update
+    const previousTasks = get().tasks;
+    set({ tasks: reorderedTasks });
+
+    try {
+      // Prepare data for API
+      const tasksWithOrder = reorderedTasks.map((task, index) => ({
+        id: task.id,
+        display_order: index,
+      }));
+
+      await taskService.reorderTasks(tasksWithOrder);
+
+      // Update local state with new order
+      set((state) => ({
+        tasks: state.tasks.map((task, index) => ({
+          ...task,
+          display_order: index,
+        })),
+      }));
+    } catch (error) {
+      // Revert on error
+      set({ tasks: previousTasks });
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to reorder tasks";
+      set({ error: errorMessage });
+      console.error("Error reordering tasks:", error);
       throw error;
     }
   },

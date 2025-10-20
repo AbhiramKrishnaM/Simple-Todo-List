@@ -137,6 +137,20 @@ class TaskService {
       throw new Error("Server health check failed");
     }
   }
+
+  /**
+   * Bulk update task order
+   */
+  async reorderTasks(
+    tasks: { id: string; display_order: number }[]
+  ): Promise<void> {
+    try {
+      await apiClient.patch(`${this.endpoint}/bulk-reorder`, { tasks });
+    } catch (error) {
+      console.error("Failed to reorder tasks:", error);
+      throw new Error("Failed to reorder tasks on server");
+    }
+  }
 }
 
 // Export a singleton instance

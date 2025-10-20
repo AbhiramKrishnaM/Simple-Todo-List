@@ -8,7 +8,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM tasks ORDER BY timestamp DESC"
+      "SELECT * FROM tasks ORDER BY display_order ASC"
     );
 
     res.json({
@@ -83,9 +83,15 @@ router.post("/", async (req, res) => {
       meta: meta ?? {},
     };
 
+    // Get the highest order and add 1
+    const orderResult = await pool.query(
+      "SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM tasks"
+    );
+    const nextOrder = orderResult.rows[0].next_order;
+
     const result = await pool.query(
-      `INSERT INTO tasks (id, title, timestamp, priority, completed, meta)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO tasks (id, title, timestamp, priority, completed, meta, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         newTask.id,
@@ -94,6 +100,7 @@ router.post("/", async (req, res) => {
         newTask.priority,
         newTask.completed,
         JSON.stringify(newTask.meta),
+        nextOrder,
       ]
     );
 
@@ -278,6 +285,58 @@ router.delete("/", async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to delete tasks",
+      message: error.message,
+    });
+  }
+});
+
+// PATCH bulk update task order
+router.patch("/bulk-reorder", async (req, res) => {
+  try {
+    const { tasks } = req.body;
+
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Tasks array is required",
+      });
+    }
+
+    // Start transaction
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Update each task's order
+      for (const task of tasks) {
+        if (!task.id || task.display_order === undefined) {
+          throw new Error("Each task must have id and display_order");
+        }
+        
+        await client.query(
+          "UPDATE tasks SET display_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+          [task.display_order, task.id]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      res.json({
+        success: true,
+        message: "Task order updated successfully",
+        count: tasks.length,
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Error updating task order:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update task order",
       message: error.message,
     });
   }

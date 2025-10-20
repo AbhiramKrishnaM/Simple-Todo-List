@@ -10,5 +10,6 @@ export interface Task {
   timestamp: number;
   priority: TaskPriority;
   completed: boolean;
+  display_order?: number;
   meta?: TaskMeta;
 }

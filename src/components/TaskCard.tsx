@@ -1,6 +1,8 @@
 import * as React from "react";
-import { X } from "lucide-react";
+import { X, GripVertical } from "lucide-react";
 import { motion } from "motion/react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import type { Task } from "@/types";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,20 @@ export default function TaskCard({
 }: TaskCardProps) {
   const [isChecked, setIsChecked] = React.useState<boolean>(Boolean(checked));
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, disabled: checked }); // Disable drag for completed tasks
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   React.useEffect(() => {
     if (typeof checked === "boolean") setIsChecked(checked);
   }, [checked]);
@@ -39,8 +55,11 @@ export default function TaskCard({
 
   return (
     <motion.div
+      ref={setNodeRef}
+      style={style}
       className={cn(
-        "flex w-full items-center gap-3 rounded-2xl border border-input px-4 py-3 shadow-sm",
+        "flex w-full items-center gap-3 rounded-2xl border border-input px-4 py-3 shadow-sm bg-background",
+        isDragging && "opacity-50 shadow-lg z-50",
         className
       )}
       role="group"
@@ -59,10 +78,21 @@ export default function TaskCard({
         layout: { duration: 0.2 },
       }}
       whileHover={{
-        scale: 1.02,
+        scale: isDragging ? 1 : 1.02,
         transition: { duration: 0.1 },
       }}
     >
+      {/* Drag handle - only show for uncompleted tasks */}
+      {!checked && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+        >
+          <GripVertical className="size-5" />
+        </div>
+      )}
+
       <Checkbox
         checked={isChecked}
         onCheckedChange={(v) => handleCheckedChange(Boolean(v))}

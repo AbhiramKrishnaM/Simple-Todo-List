@@ -6,6 +6,21 @@ import type { Task } from "./types";
 import { useTasksStore } from "./store/tasks";
 import { motion, AnimatePresence } from "motion/react";
 import ModeToggle from "@/components/ModeToggle";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 function App() {
   const tasks = useTasksStore((s) => s.tasks);
@@ -13,6 +28,7 @@ function App() {
   const createTask = useTasksStore((s) => s.createTask);
   const toggleTask = useTasksStore((s) => s.toggleTask);
   const removeTask = useTasksStore((s) => s.removeTask);
+  const reorderTasks = useTasksStore((s) => s.reorderTasks);
   const error = useTasksStore((s) => s.error);
 
   // Fetch tasks on mount
@@ -20,18 +36,35 @@ function App() {
     fetchTasks();
   }, [fetchTasks]);
 
-  // Sort tasks locally to avoid infinite re-renders
-  const sortedTasks = React.useMemo(() => {
-    return [...tasks].sort((a, b) => {
-      if (a.completed !== b.completed) {
-        return a.completed ? 1 : -1;
+  // Separate completed and uncompleted tasks
+  const { uncompletedTasks, completedTasks } = React.useMemo(() => {
+    const uncompleted = tasks.filter((task) => !task.completed);
+    const completed = tasks.filter((task) => task.completed);
+
+    // Sort by display_order if available, otherwise by timestamp
+    const sortByOrder = (a: Task, b: Task) => {
+      if (a.display_order !== undefined && b.display_order !== undefined) {
+        return a.display_order - b.display_order;
       }
       return a.timestamp - b.timestamp;
-    });
+    };
+
+    return {
+      uncompletedTasks: [...uncompleted].sort(sortByOrder),
+      completedTasks: [...completed].sort(sortByOrder),
+    };
   }, [tasks]);
 
   const hasTasks = tasks.length > 0;
-  const remainingTasks = tasks.filter((task) => !task.completed).length;
+  const remainingTasks = uncompletedTasks.length;
+
+  // Setup drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   async function handleAdd(task: Task) {
     try {
@@ -59,6 +92,33 @@ function App() {
       await removeTask(id);
     } catch (error) {
       console.error("Failed to remove task:", error);
+    }
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = uncompletedTasks.findIndex(
+      (task) => task.id === active.id
+    );
+    const newIndex = uncompletedTasks.findIndex((task) => task.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      // Reorder uncompleted tasks
+      const reordered = arrayMove(uncompletedTasks, oldIndex, newIndex);
+
+      // Combine with completed tasks (keep them at the end)
+      const allTasks = [...reordered, ...completedTasks];
+
+      try {
+        await reorderTasks(allTasks);
+      } catch (error) {
+        console.error("Failed to reorder tasks:", error);
+      }
     }
   }
 
@@ -97,19 +157,44 @@ function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <div className="flex flex-col gap-4">
-              <AnimatePresence mode="popLayout">
-                {sortedTasks.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    checked={t.completed}
-                    onToggle={(id) => handleToggle(id)}
-                    onRemove={(id) => handleRemove(id)}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex flex-col gap-4">
+                {/* Uncompleted tasks - draggable */}
+                <SortableContext
+                  items={uncompletedTasks.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <AnimatePresence mode="popLayout">
+                    {uncompletedTasks.map((t) => (
+                      <TaskCard
+                        key={t.id}
+                        task={t}
+                        checked={t.completed}
+                        onToggle={(id) => handleToggle(id)}
+                        onRemove={(id) => handleRemove(id)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </SortableContext>
+
+                {/* Completed tasks - not draggable */}
+                <AnimatePresence mode="popLayout">
+                  {completedTasks.map((t) => (
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      checked={t.completed}
+                      onToggle={(id) => handleToggle(id)}
+                      onRemove={(id) => handleRemove(id)}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </DndContext>
           </motion.div>
         )}
 
