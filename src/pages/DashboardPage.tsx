@@ -14,13 +14,13 @@ function DashboardPage() {
     const completed = tasks.filter((t) => t.completed).length;
     const pending = tasks.filter((t) => !t.completed).length;
     const highPriority = tasks.filter(
-      (t) => t.priority === "high" && !t.completed
+      (t) => t.priority === 1 && !t.completed
     ).length;
     const mediumPriority = tasks.filter(
-      (t) => t.priority === "medium" && !t.completed
+      (t) => t.priority === 2 && !t.completed
     ).length;
     const lowPriority = tasks.filter(
-      (t) => t.priority === "low" && !t.completed
+      (t) => t.priority === 3 && !t.completed
     ).length;
 
     return {
