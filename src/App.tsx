@@ -143,21 +143,28 @@ function App() {
     : null;
 
   return (
-    <>
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Navbar */}
+      <div className="w-full h-16 flex justify-between items-center px-6 flex-shrink-0 border-b border-border/40">
+        <div>hello</div>
+
+        {/* Global top-right controls */}
+        <div>
+          <ModeToggle />
+        </div>
+      </div>
+
+      {/* Main content area */}
       <motion.div
         className={[
-          "flex h-screen flex-col items-center gap-4 px-6 py-10",
+          "flex flex-1 flex-col items-center gap-4 px-6 py-6 overflow-hidden",
           hasTasks ? "justify-start" : "justify-center",
         ].join(" ")}
         layout
         transition={{ duration: 0.4, ease: "easeInOut" }}
       >
-        {/* Global top-right controls */}
-        <div className="fixed right-4 top-4 z-50">
-          <ModeToggle />
-        </div>
         {/* Header + input; behaves like a fixed header once tasks exist */}
-        <div className="w-full max-w-xl">
+        <div className="w-full max-w-xl flex-shrink-0">
           <div className="mb-2 text-2xl font-bold text-foreground">
             Your To Do
           </div>
@@ -171,7 +178,7 @@ function App() {
 
         {hasTasks && (
           <motion.div
-            className="w-full max-w-xl flex-1 overflow-y-auto px-2 pt-1"
+            className="w-full max-w-xl flex-1 overflow-y-auto px-2 pt-1 min-h-0"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -241,14 +248,14 @@ function App() {
         )}
 
         {/* Remaining todos counter and motivational quote */}
-        <div className="mt-6 w-full max-w-xl">
+        <div className="w-full max-w-xl flex-shrink-0">
           <div className="text-lg font-semibold text-foreground mb-2">
             Your remaining todos: {remainingTasks}
           </div>
           <Quote />
         </div>
       </motion.div>
-    </>
+    </div>
   );
 }
 
