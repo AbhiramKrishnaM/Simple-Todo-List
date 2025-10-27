@@ -4,6 +4,7 @@ import TaskCard from "../components/TaskCard";
 import Quote from "../components/Quote";
 import type { Task } from "../types";
 import { useTasksStore } from "../store/tasks";
+import { useSettingsStore } from "../store/settings";
 import { motion, AnimatePresence } from "motion/react";
 import {
   DndContext,
@@ -31,13 +32,18 @@ function ListPage() {
   const reorderTasks = useTasksStore((s) => s.reorderTasks);
   const error = useTasksStore((s) => s.error);
 
+  const settings = useSettingsStore((s) => s.settings);
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+
   // Track the active dragging item
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [limitError, setLimitError] = React.useState<string | null>(null);
 
-  // Fetch tasks on mount
+  // Fetch tasks and settings on mount
   React.useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+    fetchSettings();
+  }, [fetchTasks, fetchSettings]);
 
   // Separate completed and uncompleted tasks
   const { uncompletedTasks, completedTasks } = React.useMemo(() => {
@@ -60,6 +66,7 @@ function ListPage() {
 
   const hasTasks = tasks.length > 0;
   const remainingTasks = uncompletedTasks.length;
+  const taskLimit = settings?.numberOfTasks ?? 7;
 
   // Setup drag and drop sensors
   const sensors = useSensors(
@@ -70,6 +77,19 @@ function ListPage() {
   );
 
   async function handleAdd(task: Task) {
+    // Check if we've reached the task limit
+    if (uncompletedTasks.length >= taskLimit) {
+      setLimitError(
+        `You've reached your task limit of ${taskLimit}. Complete or delete some tasks, or increase your limit in Settings.`
+      );
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setLimitError(null);
+      }, 5000);
+      return;
+    }
+
+    setLimitError(null);
     try {
       await createTask({
         title: task.title,
@@ -161,6 +181,11 @@ function ListPage() {
             {error}
           </div>
         )}
+        {limitError && (
+          <div className="mt-2 rounded-md bg-orange-500/10 border border-orange-500/20 px-3 py-2 text-sm text-orange-600 dark:text-orange-400">
+            {limitError}
+          </div>
+        )}
       </div>
 
       {hasTasks && (
@@ -237,7 +262,7 @@ function ListPage() {
       {/* Remaining todos counter and motivational quote */}
       <div className="w-full max-w-xl flex-shrink-0">
         <div className="text-lg font-semibold text-foreground mb-2">
-          Your remaining todos: {remainingTasks}
+          Your remaining todos: {remainingTasks} / {taskLimit}
         </div>
         <Quote />
       </div>

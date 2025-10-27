@@ -55,6 +55,16 @@ export const initDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at)
     `);
 
+    // Create settings table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id SERIAL PRIMARY KEY,
+        number_of_tasks INTEGER NOT NULL DEFAULT 7,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log("Database tables initialized successfully");
   } catch (error) {
     console.error("Error initializing database:", error);

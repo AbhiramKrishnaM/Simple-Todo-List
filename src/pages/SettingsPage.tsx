@@ -1,44 +1,64 @@
 import * as React from "react";
 import { motion } from "motion/react";
-import { useTasksStore } from "../store/tasks";
+import { useSettingsStore } from "../store/settings";
 
 function SettingsPage() {
-  const tasks = useTasksStore((s) => s.tasks);
-  const removeTask = useTasksStore((s) => s.removeTask);
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const settings = useSettingsStore((s) => s.settings);
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const isLoading = useSettingsStore((s) => s.isLoading);
 
-  const handleClearCompleted = async () => {
-    setIsDeleting(true);
+  const [numberOfTasks, setNumberOfTasks] = React.useState(7);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(
+    null
+  );
+
+  // Load settings on mount
+  React.useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  // Update local state when settings are loaded
+  React.useEffect(() => {
+    if (settings) {
+      setNumberOfTasks(settings.numberOfTasks);
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
     try {
-      const completedTasks = tasks.filter((t) => t.completed);
-      await Promise.all(completedTasks.map((t) => removeTask(t.id)));
-    } catch (error) {
-      console.error("Failed to clear completed tasks:", error);
+      setIsSaving(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      await updateSettings({ numberOfTasks });
+      setSuccessMessage("Settings saved successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+      setError("Failed to save settings. Please try again.");
     } finally {
-      setIsDeleting(false);
+      setIsSaving(false);
     }
   };
 
-  const handleClearAll = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete all tasks? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      await Promise.all(tasks.map((t) => removeTask(t.id)));
-    } catch (error) {
-      console.error("Failed to clear all tasks:", error);
-    } finally {
-      setIsDeleting(false);
+  const handleIncrement = () => {
+    if (numberOfTasks < 100) {
+      setNumberOfTasks(numberOfTasks + 1);
     }
   };
 
-  const completedCount = tasks.filter((t) => t.completed).length;
+  const handleDecrement = () => {
+    if (numberOfTasks > 1) {
+      setNumberOfTasks(numberOfTasks - 1);
+    }
+  };
 
   return (
     <motion.div
@@ -50,7 +70,7 @@ function SettingsPage() {
       <div className="w-full max-w-2xl">
         <h1 className="text-3xl font-bold text-foreground mb-8">Settings</h1>
 
-        {/* Task Management Section */}
+        {/* Task Limit Configuration Section */}
         <div className="space-y-6">
           <motion.div
             className="p-6 rounded-lg border border-border bg-card"
@@ -58,75 +78,69 @@ function SettingsPage() {
             transition={{ duration: 0.2 }}
           >
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              Task Management
+              Task Limit Configuration
             </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Manage your tasks and data
+            <p className="text-sm text-muted-foreground mb-6">
+              Set the maximum number of tasks you can work on at a time
             </p>
 
-            <div className="space-y-3">
-              <button
-                onClick={handleClearCompleted}
-                disabled={completedCount === 0 || isDeleting}
-                className="w-full px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-700 disabled:bg-muted disabled:text-muted-foreground text-white font-medium transition-colors"
-              >
-                Clear Completed Tasks ({completedCount})
-              </button>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Number Input Controls */}
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={handleDecrement}
+                    disabled={numberOfTasks <= 1 || isSaving}
+                    className="w-12 h-12 rounded-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed text-foreground font-bold text-xl transition-colors"
+                  >
+                    -
+                  </button>
 
-              <button
-                onClick={handleClearAll}
-                disabled={tasks.length === 0 || isDeleting}
-                className="w-full px-4 py-2 rounded-md bg-destructive hover:bg-destructive/90 disabled:bg-muted disabled:text-muted-foreground text-destructive-foreground font-medium transition-colors"
-              >
-                Delete All Tasks
-              </button>
-            </div>
-          </motion.div>
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-5xl font-bold text-foreground">
+                      {numberOfTasks}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      tasks at a time
+                    </span>
+                  </div>
 
-          {/* App Info Section */}
-          <motion.div
-            className="p-6 rounded-lg border border-border bg-card"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              About
-            </h3>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                <span className="font-medium text-foreground">Version:</span>{" "}
-                1.0.0
-              </p>
-              <p>
-                <span className="font-medium text-foreground">
-                  Total Tasks:
-                </span>{" "}
-                {tasks.length}
-              </p>
-              <p>
-                <span className="font-medium text-foreground">Completed:</span>{" "}
-                {tasks.filter((t) => t.completed).length}
-              </p>
-              <p>
-                <span className="font-medium text-foreground">Pending:</span>{" "}
-                {tasks.filter((t) => !t.completed).length}
-              </p>
-            </div>
-          </motion.div>
+                  <button
+                    onClick={handleIncrement}
+                    disabled={numberOfTasks >= 100 || isSaving}
+                    className="w-12 h-12 rounded-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed text-foreground font-bold text-xl transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
 
-          {/* Preferences Section */}
-          <motion.div
-            className="p-6 rounded-lg border border-border bg-card"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              Preferences
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Theme settings can be adjusted using the toggle in the top
-              navigation bar.
-            </p>
+                {/* Save Button */}
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-full px-4 py-3 rounded-md bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-medium transition-colors"
+                >
+                  {isSaving ? "Saving..." : "Save Settings"}
+                </button>
+
+                {/* Error/Success Messages */}
+                {error && (
+                  <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                    {error}
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="p-3 rounded-md bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm">
+                    {successMessage}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
