@@ -70,42 +70,12 @@ export default function TaskCard({
   // Create audio instance for alarm
   const alarmAudio = React.useMemo(() => new Audio(alarmSound), []);
 
-  // Function to play alarm 3 times with delay between plays
-  const playAlarmThreeTimes = React.useCallback(() => {
-    let playCount = 0;
-    const maxPlays = 3;
-    const delayBetweenPlays = 500; // 500ms pause between each alarm
-
-    const playAlarm = () => {
-      if (playCount >= maxPlays) {
-        return;
-      }
-
-      playCount++;
-      alarmAudio.currentTime = 0; // Reset to start
-      alarmAudio.play().catch((error) => {
-        console.error("Failed to play alarm:", error);
-      });
-    };
-
-    // Remove any existing event listeners to prevent duplicates
-    alarmAudio.onended = null;
-
-    // Listen for audio end event to replay with delay
-    alarmAudio.onended = () => {
-      if (playCount < maxPlays) {
-        // Add delay before next play to avoid overlap
-        setTimeout(() => {
-          playAlarm();
-        }, delayBetweenPlays);
-      } else {
-        // Clean up after last play
-        alarmAudio.onended = null;
-      }
-    };
-
-    // Start first play
-    playAlarm();
+  // Function to play alarm once
+  const playAlarm = React.useCallback(() => {
+    alarmAudio.currentTime = 0;
+    alarmAudio.play().catch((error) => {
+      console.error("Failed to play alarm:", error);
+    });
   }, [alarmAudio]);
 
   React.useEffect(() => {
@@ -121,13 +91,19 @@ export default function TaskCard({
     }
   }, [stopFocus]);
 
+  // Track if timer already completed to prevent multiple calls
+  const timerCompletedRef = React.useRef(false);
+
   // Check if timer completed
   React.useEffect(() => {
-    if (isFocused && activeSession?.focus_duration) {
+    if (isFocused && activeSession?.focus_duration && !timerCompletedRef.current) {
       const durationSeconds = activeSession.focus_duration * 60;
       if (elapsedTime >= durationSeconds) {
-        // Timer completed - play alarm 3 times, auto stop, and mark as complete
-        playAlarmThreeTimes();
+        // Mark as completed to prevent multiple calls
+        timerCompletedRef.current = true;
+        
+        // Timer completed - play alarm once, auto stop, and mark as complete
+        playAlarm();
         handleStopClick();
         
         // Mark task as completed
@@ -135,7 +111,12 @@ export default function TaskCard({
         onToggle?.(task.id);
       }
     }
-  }, [elapsedTime, isFocused, activeSession, handleStopClick, playAlarmThreeTimes, onToggle, task.id]);
+    
+    // Reset flag when session changes or ends
+    if (!isFocused) {
+      timerCompletedRef.current = false;
+    }
+  }, [elapsedTime, isFocused, activeSession, handleStopClick, playAlarm, onToggle, task.id]);
 
   async function handleCheckedChange(next: boolean) {
     // If task is being marked as completed and has active timer, stop it first
