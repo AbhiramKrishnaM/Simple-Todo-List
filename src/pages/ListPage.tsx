@@ -50,17 +50,23 @@ function ListPage() {
     const uncompleted = tasks.filter((task) => !task.completed);
     const completed = tasks.filter((task) => task.completed);
 
-    // Sort by display_order if available, otherwise by timestamp
-    const sortByOrder = (a: Task, b: Task) => {
+    // Sort by priority first (ascending), then by display_order, then by timestamp
+    const sortByPriority = (a: Task, b: Task) => {
+      // Priority takes precedence
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      // If priorities are equal, use display_order
       if (a.display_order !== undefined && b.display_order !== undefined) {
         return a.display_order - b.display_order;
       }
+      // Fallback to timestamp
       return a.timestamp - b.timestamp;
     };
 
     return {
-      uncompletedTasks: [...uncompleted].sort(sortByOrder),
-      completedTasks: [...completed].sort(sortByOrder),
+      uncompletedTasks: [...uncompleted].sort(sortByPriority),
+      completedTasks: [...completed].sort(sortByPriority),
     };
   }, [tasks]);
 
@@ -217,6 +223,7 @@ function ListPage() {
                       checked={t.completed}
                       onToggle={(id) => handleToggle(id)}
                       onRemove={(id) => handleRemove(id)}
+                      maxTasks={taskLimit}
                     />
                   ))}
                 </AnimatePresence>
@@ -231,6 +238,7 @@ function ListPage() {
                     checked={t.completed}
                     onToggle={(id) => handleToggle(id)}
                     onRemove={(id) => handleRemove(id)}
+                    maxTasks={taskLimit}
                   />
                 ))}
               </AnimatePresence>

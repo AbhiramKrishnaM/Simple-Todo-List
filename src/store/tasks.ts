@@ -38,6 +38,9 @@ type TasksState = {
   // Reorder tasks
   reorderTasks: (tasks: Task[]) => Promise<void>;
 
+  // Assign priority to a task
+  assignPriority: (taskId: string, priority: number) => Promise<void>;
+
   // Error handling
   setError: (error: string | null) => void;
 };
@@ -214,6 +217,27 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         error instanceof Error ? error.message : "Failed to reorder tasks";
       set({ error: errorMessage });
       console.error("Error reordering tasks:", error);
+      throw error;
+    }
+  },
+
+  assignPriority: async (taskId, priority) => {
+    set({ isLoading: true, error: null });
+    const previousTasks = get().tasks;
+
+    try {
+      // Call API - it returns all updated tasks
+      const updatedTasks = await taskService.assignPriority(taskId, priority);
+      
+      // Update state with all tasks (backend handles the swap)
+      set({ tasks: updatedTasks, isLoading: false });
+    } catch (error) {
+      // Revert on error
+      set({ tasks: previousTasks });
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to assign priority";
+      set({ error: errorMessage, isLoading: false });
+      console.error("Error assigning priority:", error);
       throw error;
     }
   },

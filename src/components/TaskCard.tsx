@@ -10,8 +10,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFocusStore } from "@/store/focus";
+import { useTasksStore } from "@/store/tasks";
 import { focusService } from "@api";
 import alarmSound from "@/assets/alarm.mp3";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type TaskCardProps = {
   task: Task;
@@ -19,6 +27,7 @@ type TaskCardProps = {
   onToggle?: (taskId: string) => void;
   onRemove?: (taskId: string) => void;
   className?: string;
+  maxTasks?: number;
 };
 
 const DURATION_OPTIONS = [
@@ -34,10 +43,14 @@ export default function TaskCard({
   onToggle,
   onRemove,
   className,
+  maxTasks = 7,
 }: TaskCardProps) {
   const [isChecked, setIsChecked] = React.useState<boolean>(Boolean(checked));
   const [showDurationPicker, setShowDurationPicker] = React.useState(false);
   const [customDuration, setCustomDuration] = React.useState("");
+
+  // Get assignPriority from tasks store
+  const assignPriority = useTasksStore((state) => state.assignPriority);
 
   const {
     attributes,
@@ -195,6 +208,25 @@ export default function TaskCard({
     }
   }
 
+  // Handle priority change
+  async function handlePriorityChange(newPriority: string) {
+    const priority = parseInt(newPriority, 10);
+    if (isNaN(priority) || priority < 1 || priority > maxTasks) {
+      return;
+    }
+
+    try {
+      await assignPriority(task.id, priority);
+    } catch (error) {
+      console.error("Failed to assign priority:", error);
+    }
+  }
+
+  // Generate priority options (1 to maxTasks)
+  const priorityOptions = React.useMemo(() => {
+    return Array.from({ length: maxTasks }, (_, i) => i + 1);
+  }, [maxTasks]);
+
   return (
     <motion.div
       ref={setNodeRef}
@@ -246,6 +278,29 @@ export default function TaskCard({
           aria-label={isChecked ? "Mark task as not done" : "Mark task as done"}
           className="size-5 rounded-md"
         />
+
+        {/* Priority dropdown - only show for uncompleted tasks */}
+        {!checked && !isDisabled && (
+          <Select
+            value={task.priority.toString()}
+            onValueChange={handlePriorityChange}
+          >
+            <SelectTrigger className="w-16 h-8 text-xs font-semibold">
+              <SelectValue placeholder="#" />
+            </SelectTrigger>
+            <SelectContent>
+              {priorityOptions.map((priority) => (
+                <SelectItem 
+                  key={priority} 
+                  value={priority.toString()}
+                  className="text-xs"
+                >
+                  {priority}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <motion.span
           className={cn(

@@ -8,7 +8,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM tasks ORDER BY display_order ASC"
+      "SELECT * FROM tasks ORDER BY priority ASC, display_order ASC"
     );
 
     res.json({
@@ -398,6 +398,96 @@ router.patch("/bulk-reorder", async (req, res) => {
       error: "Failed to update task order",
       message: error.message,
     });
+  }
+});
+
+// PATCH assign priority to a task (with uniqueness handling)
+router.patch("/:id/assign-priority", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { priority } = req.body;
+
+    // Validation
+    if (priority === undefined || priority === null) {
+      return res.status(400).json({
+        success: false,
+        error: "Priority is required",
+      });
+    }
+
+    const priorityNum = Number(priority);
+    if (isNaN(priorityNum) || priorityNum < 1) {
+      return res.status(400).json({
+        success: false,
+        error: "Priority must be a positive number",
+      });
+    }
+
+    await client.query("BEGIN");
+
+    // Check if task exists
+    const taskResult = await client.query(
+      "SELECT * FROM tasks WHERE id = $1",
+      [id]
+    );
+
+    if (taskResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        success: false,
+        error: "Task not found",
+      });
+    }
+
+    const currentTask = taskResult.rows[0];
+
+    // Check if another task already has this priority
+    const existingTaskResult = await client.query(
+      "SELECT * FROM tasks WHERE priority = $1 AND id != $2",
+      [priorityNum, id]
+    );
+
+    if (existingTaskResult.rows.length > 0) {
+      // Another task has this priority - swap their priorities
+      const otherTask = existingTaskResult.rows[0];
+      const currentTaskPriority = currentTask.priority;
+
+      // Update the other task with the current task's priority
+      await client.query(
+        "UPDATE tasks SET priority = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [currentTaskPriority, otherTask.id]
+      );
+    }
+
+    // Update current task with new priority
+    await client.query(
+      "UPDATE tasks SET priority = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+      [priorityNum, id]
+    );
+
+    await client.query("COMMIT");
+
+    // Fetch all tasks to return updated state
+    const allTasksResult = await pool.query(
+      "SELECT * FROM tasks ORDER BY priority ASC, display_order ASC"
+    );
+
+    res.json({
+      success: true,
+      data: allTasksResult.rows,
+      message: "Priority assigned successfully",
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error assigning priority:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to assign priority",
+      message: error.message,
+    });
+  } finally {
+    client.release();
   }
 });
 
