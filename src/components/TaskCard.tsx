@@ -70,29 +70,41 @@ export default function TaskCard({
   // Create audio instance for alarm
   const alarmAudio = React.useMemo(() => new Audio(alarmSound), []);
 
-  // Function to play alarm 3 times
+  // Function to play alarm 3 times with delay between plays
   const playAlarmThreeTimes = React.useCallback(() => {
     let playCount = 0;
     const maxPlays = 3;
+    const delayBetweenPlays = 500; // 500ms pause between each alarm
 
     const playAlarm = () => {
-      if (playCount < maxPlays) {
-        playCount++;
-        alarmAudio.currentTime = 0; // Reset to start
-        alarmAudio.play().catch((error) => {
-          console.error("Failed to play alarm:", error);
-        });
+      if (playCount >= maxPlays) {
+        return;
       }
+
+      playCount++;
+      alarmAudio.currentTime = 0; // Reset to start
+      alarmAudio.play().catch((error) => {
+        console.error("Failed to play alarm:", error);
+      });
     };
 
-    // Listen for audio end event to replay
+    // Remove any existing event listeners to prevent duplicates
+    alarmAudio.onended = null;
+
+    // Listen for audio end event to replay with delay
     alarmAudio.onended = () => {
       if (playCount < maxPlays) {
-        playAlarm();
+        // Add delay before next play to avoid overlap
+        setTimeout(() => {
+          playAlarm();
+        }, delayBetweenPlays);
+      } else {
+        // Clean up after last play
+        alarmAudio.onended = null;
       }
     };
 
-    // Start playing
+    // Start first play
     playAlarm();
   }, [alarmAudio]);
 
