@@ -10,7 +10,8 @@ type FocusState = {
   elapsedTime: number;
   
   // Timer interval reference
-  timerInterval: NodeJS.Timeout | null;
+  // In the browser, setInterval returns a number (not NodeJS.Timeout)
+  timerInterval: number | null;
   
   // Loading and error states
   isLoading: boolean;
