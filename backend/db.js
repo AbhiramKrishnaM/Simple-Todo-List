@@ -36,6 +36,7 @@ export const initDatabase = async () => {
         priority INTEGER NOT NULL,
         completed BOOLEAN DEFAULT FALSE,
         meta JSONB DEFAULT '{}'::jsonb,
+        focus_duration INTEGER DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
@@ -53,6 +54,24 @@ export const initDatabase = async () => {
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at)
+    `);
+
+    // Create focus_sessions table for tracking focus timers
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS focus_sessions (
+        id SERIAL PRIMARY KEY,
+        task_id VARCHAR(255) REFERENCES tasks(id) ON DELETE CASCADE,
+        started_at TIMESTAMP NOT NULL,
+        paused_at TIMESTAMP,
+        stopped_at TIMESTAMP,
+        elapsed_seconds INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_focus_sessions_active ON focus_sessions(is_active, task_id)
     `);
 
     // Create settings table
