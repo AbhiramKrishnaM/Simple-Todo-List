@@ -12,7 +12,7 @@ export interface ApiResponse<T> {
 // Request types
 export interface CreateTaskRequest {
   title: string;
-  priority: number;
+  priority?: number;
   completed?: boolean;
   meta?: Record<string, unknown>;
 }

@@ -66,9 +66,9 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   createTask: async (input) => {
     set({ isLoading: true, error: null });
     try {
+      // Don't send priority - let backend auto-assign it
       const task = await taskService.createTask({
         title: input.title,
-        priority: input.priority,
         completed: input.completed ?? false,
         meta: input.meta ?? {},
       });

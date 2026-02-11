@@ -66,11 +66,16 @@ router.post("/", async (req, res) => {
       });
     }
 
-    if (priority === undefined || priority === null) {
-      return res.status(400).json({
-        success: false,
-        error: "Task priority is required",
-      });
+    // Auto-assign priority if not provided
+    // Priority is the highest current priority + 1
+    let taskPriority;
+    if (priority !== undefined && priority !== null) {
+      taskPriority = Number(priority);
+    } else {
+      const priorityResult = await pool.query(
+        "SELECT COALESCE(MAX(priority), 0) + 1 as next_priority FROM tasks"
+      );
+      taskPriority = priorityResult.rows[0].next_priority;
     }
 
     // Create new task
@@ -78,7 +83,7 @@ router.post("/", async (req, res) => {
       id: generateId(),
       title: title.trim(),
       timestamp: Date.now(),
-      priority: Number(priority),
+      priority: taskPriority,
       completed: completed ?? false,
       meta: meta ?? {},
       focus_duration: focus_duration ?? null,
