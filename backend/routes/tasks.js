@@ -67,15 +67,27 @@ router.post("/", async (req, res) => {
     }
 
     // Auto-assign priority if not provided
-    // Priority is the highest current priority + 1
+    // Find the lowest available priority among incomplete tasks
     let taskPriority;
     if (priority !== undefined && priority !== null) {
       taskPriority = Number(priority);
     } else {
+      // Get all priorities from incomplete tasks, sorted
       const priorityResult = await pool.query(
-        "SELECT COALESCE(MAX(priority), 0) + 1 as next_priority FROM tasks"
+        "SELECT priority FROM tasks WHERE completed = false ORDER BY priority ASC"
       );
-      taskPriority = priorityResult.rows[0].next_priority;
+      
+      const existingPriorities = priorityResult.rows.map(row => row.priority);
+      
+      // Find the first gap in the sequence (starting from 1)
+      taskPriority = 1;
+      for (const existingPriority of existingPriorities) {
+        if (existingPriority === taskPriority) {
+          taskPriority++;
+        } else {
+          break;
+        }
+      }
     }
 
     // Create new task
