@@ -34,32 +34,25 @@ function ListPage() {
   const settings = useSettingsStore((s) => s.settings);
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
 
-  // Track the active dragging item
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [limitError, setLimitError] = React.useState<string | null>(null);
 
-  // Fetch tasks and settings on mount
   React.useEffect(() => {
     fetchTasks();
     fetchSettings();
   }, [fetchTasks, fetchSettings]);
 
-  // Separate completed and uncompleted tasks
   const { uncompletedTasks, completedTasks } = React.useMemo(() => {
     const uncompleted = tasks.filter((task) => !task.completed);
     const completed = tasks.filter((task) => task.completed);
 
-    // Sort by priority first (ascending), then by display_order, then by timestamp
     const sortByPriority = (a: Task, b: Task) => {
-      // Priority takes precedence
       if (a.priority !== b.priority) {
         return a.priority - b.priority;
       }
-      // If priorities are equal, use display_order
       if (a.display_order !== undefined && b.display_order !== undefined) {
         return a.display_order - b.display_order;
       }
-      // Fallback to timestamp
       return a.timestamp - b.timestamp;
     };
 
@@ -73,7 +66,6 @@ function ListPage() {
   const remainingTasks = uncompletedTasks.length;
   const taskLimit = settings?.numberOfTasks ?? 7;
 
-  // Setup drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -82,12 +74,10 @@ function ListPage() {
   );
 
   async function handleAdd(task: Task) {
-    // Check if we've reached the task limit
     if (uncompletedTasks.length >= taskLimit) {
       setLimitError(
         `You've reached your task limit of ${taskLimit}. Complete or delete some tasks, or increase your limit in Settings.`,
       );
-      // Clear error after 5 seconds
       setTimeout(() => {
         setLimitError(null);
       }, 5000);
@@ -141,10 +131,8 @@ function ListPage() {
     const newIndex = uncompletedTasks.findIndex((task) => task.id === over.id);
 
     if (oldIndex !== -1 && newIndex !== -1) {
-      // Reorder uncompleted tasks
       const reordered = arrayMove(uncompletedTasks, oldIndex, newIndex);
 
-      // Combine with completed tasks (keep them at the end)
       const allTasks = [...reordered, ...completedTasks];
 
       try {
@@ -161,7 +149,6 @@ function ListPage() {
     setActiveId(null);
   }
 
-  // Find the active task being dragged
   const activeTask = activeId
     ? uncompletedTasks.find((task) => task.id === activeId)
     : null;
@@ -175,7 +162,6 @@ function ListPage() {
       layout
       transition={{ duration: 0.4, ease: "easeInOut" }}
     >
-      {/* Header + input; behaves like a fixed header once tasks exist */}
       <div className="w-full max-w-xl flex-shrink-0">
         <div className="mb-2 text-2xl font-bold text-foreground">
           Your To Do
@@ -209,7 +195,6 @@ function ListPage() {
             onDragCancel={handleDragCancel}
           >
             <div className="flex flex-col gap-4">
-              {/* Uncompleted tasks - draggable */}
               <SortableContext
                 items={uncompletedTasks.map((t) => t.id)}
                 strategy={verticalListSortingStrategy}
@@ -228,7 +213,6 @@ function ListPage() {
                 </AnimatePresence>
               </SortableContext>
 
-              {/* Completed tasks - not draggable */}
               <AnimatePresence mode="popLayout">
                 {completedTasks.map((t) => (
                   <TaskCard
@@ -243,7 +227,6 @@ function ListPage() {
               </AnimatePresence>
             </div>
 
-            {/* Drag Overlay - shows the card being dragged */}
             <DragOverlay
               dropAnimation={{
                 duration: 200,
