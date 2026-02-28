@@ -105,12 +105,12 @@ export default function TaskCard({
       role="group"
       aria-disabled={isCompletedState}
     >
-      <div className="flex w-full items-start gap-2">
+      <div className="flex w-full items-center gap-2">
         {!checked && (
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing shrink-0 pt-0.5 text-gray-400 hover:text-gray-600"
+            className="cursor-grab active:cursor-grabbing shrink-0 text-gray-400 hover:text-gray-600"
           >
             <GripVertical className="size-5" />
           </div>
@@ -130,12 +130,12 @@ export default function TaskCard({
           checked={isChecked}
           onCheckedChange={(v) => handleCheckedChange(Boolean(v))}
           aria-label={isChecked ? "Mark task as not done" : "Mark task as done"}
-          className="size-5 shrink-0 mt-0.5 rounded-md"
+          className="size-5 shrink-0 rounded-md"
         />
 
         <span
           className={cn(
-            "text-[15px] font-medium text-gray-700 break-words whitespace-nowrap",
+            "text-[15px] font-medium text-gray-700 break-words whitespace-nowrap flex-1",
             isChecked && "line-through text-gray-400",
           )}
         >

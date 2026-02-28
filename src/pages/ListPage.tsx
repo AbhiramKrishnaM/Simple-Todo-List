@@ -14,6 +14,8 @@ import {
   useSensor,
   useSensors,
   DragOverlay,
+  useDroppable,
+  rectIntersection,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import {
@@ -29,6 +31,31 @@ import {
 
 const MAX_TASKS_PER_PRIORITY = 5;
 
+function DroppableZone({
+  id,
+  children,
+  isEmpty,
+}: {
+  id: string;
+  children: React.ReactNode;
+  isEmpty?: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg transition-all ${
+        isEmpty ? "min-h-[200px]" : "min-h-[120px]"
+      } ${
+        isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
 function getPriority(task: Task): "very_urgent" | "urgent" | "medium" | "low" {
   const p = task.meta?.priority;
   if (p === "very_urgent" || p === "urgent" || p === "medium" || p === "low")
@@ -36,7 +63,6 @@ function getPriority(task: Task): "very_urgent" | "urgent" | "medium" | "low" {
   return "medium";
 }
 
-/** Returns the next priority to assign when adding from the top input: fill very_urgent first (up to 5), then urgent, medium, low. */
 function getNextPriorityToFill(
   tasksByPriority: Record<"very_urgent" | "urgent" | "medium" | "low", Task[]>,
 ): "very_urgent" | "urgent" | "medium" | "low" {
@@ -86,14 +112,13 @@ function ListPage() {
       byPriority[getPriority(t)].push(t);
     });
 
-    // Within each priority row, sort by position (1–5)
     const sortByPosition = (a: Task, b: Task) => {
       const posA = a.meta?.position ?? 999;
       const posB = b.meta?.position ?? 999;
       if (posA !== posB) return posA - posB;
       return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
     };
-    
+
     PRIORITY_ORDER.forEach((p) => {
       byPriority[p].sort(sortByPosition);
     });
@@ -133,13 +158,49 @@ function ListPage() {
     if (!over || active.id === over.id) return;
 
     const draggedTask = tasks.find((t) => t.id === active.id);
-    const targetTask = tasks.find((t) => t.id === over.id);
-    if (!draggedTask || !targetTask) return;
+    if (!draggedTask) return;
 
     const draggedPriority = getPriority(draggedTask);
+
+    // Check if dropped on a droppable zone (priority section)
+    const overId = over.id as string;
+    if (overId.startsWith("droppable-")) {
+      const targetPriority = overId.replace("droppable-", "") as
+        | "very_urgent"
+        | "urgent"
+        | "medium"
+        | "low";
+      if (draggedPriority !== targetPriority) {
+        try {
+          await updateTask(draggedTask.id, {
+            meta: { ...draggedTask.meta, priority: targetPriority },
+          });
+          await fetchTasks();
+        } catch (err) {
+          console.error("Failed to change priority:", err);
+        }
+      }
+      return;
+    }
+
+    // Check if dropped on another task
+    const targetTask = tasks.find((t) => t.id === over.id);
+    if (!targetTask) return;
+
     const targetPriority = getPriority(targetTask);
 
-    if (draggedPriority !== targetPriority) return;
+    if (draggedPriority !== targetPriority) {
+      // Cross-priority drag: change the task's priority to match the target
+      try {
+        await updateTask(draggedTask.id, {
+          meta: { ...draggedTask.meta, priority: targetPriority },
+        });
+        await fetchTasks();
+      } catch (err) {
+        console.error("Failed to change priority:", err);
+      }
+      return;
+    }
 
     const rowTasks = tasksByPriority[draggedPriority].filter(
       (t) => !t.completed,
@@ -270,7 +331,7 @@ function ListPage() {
       <div className="w-full flex-1 px-2 pt-1 min-h-0">
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={rectIntersection}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
@@ -287,46 +348,52 @@ function ListPage() {
                       ? "Medium"
                       : "Low";
               return (
-                <div key={priority} className="flex flex-col gap-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    {rowLabel}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddModalPriority(priority);
-                      setAddModalOpen(true);
-                    }}
-                    className="w-fit min-w-[120px] min-h-[72px] flex items-center justify-center rounded-lg border-2 border-dashed border-input px-6 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted/30 transition-colors"
-                    aria-label={`Add ${rowLabel} task`}
-                  >
-                    <Plus className="size-8" />
-                  </button>
-                  {rowTasks.length > 0 && (
-                    <SortableContext
-                      items={rowTasks.map((t) => t.id)}
-                      strategy={rectSortingStrategy}
+                <DroppableZone 
+                  key={priority} 
+                  id={`droppable-${priority}`}
+                  isEmpty={rowTasks.length === 0}
+                >
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      {rowLabel}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddModalPriority(priority);
+                        setAddModalOpen(true);
+                      }}
+                      className="w-fit min-w-[120px] min-h-[72px] flex items-center justify-center rounded-lg border-2 border-dashed border-input px-6 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted/30 transition-colors"
+                      aria-label={`Add ${rowLabel} task`}
                     >
-                      <div className="flex flex-wrap gap-3">
-                        {rowTasks.map((t) => (
-                          <TaskCard
-                            key={t.id}
-                            task={t}
-                            checked={t.completed}
-                            onToggle={(id) => handleToggle(id)}
-                            onRemove={(id) => handleRemove(id)}
-                            onPriorityChange={handlePriorityChange}
-                            cardClassName={undefined}
-                            priorityIndicatorClass={getPriorityIndicatorClass(
-                              priority,
-                              rowColors,
-                            )}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  )}
-                </div>
+                      <Plus className="size-8" />
+                    </button>
+                    {rowTasks.length > 0 && (
+                      <SortableContext
+                        items={rowTasks.map((t) => t.id)}
+                        strategy={rectSortingStrategy}
+                      >
+                        <div className="flex flex-wrap gap-3">
+                          {rowTasks.map((t) => (
+                            <TaskCard
+                              key={t.id}
+                              task={t}
+                              checked={t.completed}
+                              onToggle={(id) => handleToggle(id)}
+                              onRemove={(id) => handleRemove(id)}
+                              onPriorityChange={handlePriorityChange}
+                              cardClassName={undefined}
+                              priorityIndicatorClass={getPriorityIndicatorClass(
+                                priority,
+                                rowColors,
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    )}
+                  </div>
+                </DroppableZone>
               );
             })}
           </div>
