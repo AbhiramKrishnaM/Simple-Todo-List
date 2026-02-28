@@ -249,11 +249,13 @@ function ListPage() {
         </motion.div>
       )}
 
-      <div className="w-full max-w-xl flex-shrink-0">
-        <div className="text-lg font-semibold text-foreground mb-2">
-          Your remaining todos: {remainingTasks} / {taskLimit}
+      {settings?.showRemainingTodoCount !== false && (
+        <div className="w-full max-w-xl flex-shrink-0">
+          <div className="text-lg font-semibold text-foreground mb-2">
+            Your remaining todos: {remainingTasks} / {taskLimit}
+          </div>
         </div>
-      </div>
+      )}
     </motion.div>
   );
 }

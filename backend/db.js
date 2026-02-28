@@ -60,6 +60,7 @@ export const initDatabase = async () => {
       CREATE TABLE IF NOT EXISTS settings (
         id SERIAL PRIMARY KEY,
         number_of_tasks INTEGER NOT NULL DEFAULT 7,
+        show_remaining_todo_count BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

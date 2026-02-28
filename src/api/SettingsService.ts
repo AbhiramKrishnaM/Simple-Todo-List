@@ -2,6 +2,7 @@ import apiClient from "./config";
 
 export interface Settings {
   numberOfTasks: number;
+  showRemainingTodoCount?: boolean;
 }
 
 export interface SettingsResponse {

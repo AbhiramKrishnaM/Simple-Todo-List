@@ -9,6 +9,8 @@ function SettingsPage() {
   const isLoading = useSettingsStore((s) => s.isLoading);
 
   const [numberOfTasks, setNumberOfTasks] = React.useState(7);
+  const [showRemainingTodoCount, setShowRemainingTodoCount] =
+    React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(
@@ -22,6 +24,7 @@ function SettingsPage() {
   React.useEffect(() => {
     if (settings) {
       setNumberOfTasks(settings.numberOfTasks);
+      setShowRemainingTodoCount(settings.showRemainingTodoCount ?? true);
     }
   }, [settings]);
 
@@ -31,7 +34,7 @@ function SettingsPage() {
       setError(null);
       setSuccessMessage(null);
 
-      await updateSettings({ numberOfTasks });
+      await updateSettings({ numberOfTasks, showRemainingTodoCount });
       setSuccessMessage("Settings saved successfully!");
 
       setTimeout(() => {
@@ -120,6 +123,34 @@ function SettingsPage() {
                 >
                   {isSaving ? "Saving..." : "Save Settings"}
                 </button>
+
+                <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <label
+                    htmlFor="show-remaining"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Show Remaining Todo Count
+                  </label>
+                  <button
+                    id="show-remaining"
+                    role="switch"
+                    aria-checked={showRemainingTodoCount}
+                    onClick={() =>
+                      setShowRemainingTodoCount((prev) => !prev)
+                    }
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 ${
+                      showRemainingTodoCount ? "bg-primary" : "bg-muted"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                        showRemainingTodoCount
+                          ? "translate-x-5"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
 
                 {error && (
                   <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">

@@ -12,26 +12,31 @@ router.get("/", async (req, res) => {
     if (result.rows.length === 0) {
       const defaultSettings = {
         numberOfTasks: 7,
+        showRemainingTodoCount: true,
       };
 
       // Insert default settings
       const insertResult = await pool.query(
-        "INSERT INTO settings (number_of_tasks) VALUES ($1) RETURNING *",
-        [defaultSettings.numberOfTasks]
+        "INSERT INTO settings (number_of_tasks, show_remaining_todo_count) VALUES ($1, $2) RETURNING *",
+        [defaultSettings.numberOfTasks, defaultSettings.showRemainingTodoCount]
       );
 
+      const row = insertResult.rows[0];
       return res.json({
         success: true,
         data: {
-          numberOfTasks: insertResult.rows[0].number_of_tasks,
+          numberOfTasks: row.number_of_tasks,
+          showRemainingTodoCount: row.show_remaining_todo_count ?? true,
         },
       });
     }
 
+    const row = result.rows[0];
     res.json({
       success: true,
       data: {
-        numberOfTasks: result.rows[0].number_of_tasks,
+        numberOfTasks: row.number_of_tasks,
+        showRemainingTodoCount: row.show_remaining_todo_count ?? true,
       },
     });
   } catch (error) {
@@ -47,7 +52,7 @@ router.get("/", async (req, res) => {
 // PUT update settings
 router.put("/", async (req, res) => {
   try {
-    const { numberOfTasks } = req.body;
+    const { numberOfTasks, showRemainingTodoCount } = req.body;
 
     // Validation
     if (numberOfTasks === undefined || numberOfTasks === null) {
@@ -66,6 +71,11 @@ router.put("/", async (req, res) => {
       });
     }
 
+    const showCount =
+      showRemainingTodoCount === undefined
+        ? true
+        : Boolean(showRemainingTodoCount);
+
     // Check if settings exist
     const checkResult = await pool.query("SELECT id FROM settings LIMIT 1");
 
@@ -73,21 +83,23 @@ router.put("/", async (req, res) => {
     if (checkResult.rows.length === 0) {
       // Insert new settings
       result = await pool.query(
-        "INSERT INTO settings (number_of_tasks) VALUES ($1) RETURNING *",
-        [taskCount]
+        "INSERT INTO settings (number_of_tasks, show_remaining_todo_count) VALUES ($1, $2) RETURNING *",
+        [taskCount, showCount]
       );
     } else {
       // Update existing settings
       result = await pool.query(
-        "UPDATE settings SET number_of_tasks = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *",
-        [taskCount, checkResult.rows[0].id]
+        "UPDATE settings SET number_of_tasks = $1, show_remaining_todo_count = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *",
+        [taskCount, showCount, checkResult.rows[0].id]
       );
     }
 
+    const row = result.rows[0];
     res.json({
       success: true,
       data: {
-        numberOfTasks: result.rows[0].number_of_tasks,
+        numberOfTasks: row.number_of_tasks,
+        showRemainingTodoCount: row.show_remaining_todo_count ?? true,
       },
       message: "Settings updated successfully",
     });
