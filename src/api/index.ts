@@ -1,7 +1,6 @@
 // Export the main service
 export { taskService, default as TaskService } from "./TaskService";
 export { settingsService, default as SettingsService } from "./SettingsService";
-export { focusService, default as FocusService } from "./FocusService";
 
 // Export types
 export type {

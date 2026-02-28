@@ -56,7 +56,7 @@ router.get("/:id", async (req, res) => {
 // POST create new task
 router.post("/", async (req, res) => {
   try {
-    const { title, priority, completed, meta, focus_duration } = req.body;
+    const { title, priority, completed, meta } = req.body;
 
     // Validation
     if (!title || title.trim() === "") {
@@ -98,7 +98,6 @@ router.post("/", async (req, res) => {
       priority: taskPriority,
       completed: completed ?? false,
       meta: meta ?? {},
-      focus_duration: focus_duration ?? null,
     };
 
     // Get the highest order and add 1
@@ -108,8 +107,8 @@ router.post("/", async (req, res) => {
     const nextOrder = orderResult.rows[0].next_order;
 
     const result = await pool.query(
-      `INSERT INTO tasks (id, title, timestamp, priority, completed, meta, display_order, focus_duration)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO tasks (id, title, timestamp, priority, completed, meta, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         newTask.id,
@@ -119,7 +118,6 @@ router.post("/", async (req, res) => {
         newTask.completed,
         JSON.stringify(newTask.meta),
         nextOrder,
-        newTask.focus_duration,
       ]
     );
 
@@ -142,7 +140,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, priority, completed, meta, focus_duration } = req.body;
+    const { title, priority, completed, meta } = req.body;
 
     // Check if task exists
     const checkResult = await pool.query("SELECT * FROM tasks WHERE id = $1", [
@@ -177,10 +175,6 @@ router.put("/:id", async (req, res) => {
       updates.push(`meta = $${paramCount++}`);
       values.push(JSON.stringify(meta));
     }
-    if (focus_duration !== undefined) {
-      updates.push(`focus_duration = $${paramCount++}`);
-      values.push(focus_duration);
-    }
 
     // Always update the updated_at timestamp
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -207,59 +201,6 @@ router.put("/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to update task",
-      message: error.message,
-    });
-  }
-});
-
-// PATCH update task focus duration
-router.patch("/:id/focus-duration", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { focus_duration } = req.body;
-
-    // Validate focus_duration
-    if (focus_duration !== null && focus_duration !== undefined) {
-      if (typeof focus_duration !== "number" || focus_duration <= 0) {
-        return res.status(400).json({
-          success: false,
-          error: "Focus duration must be a positive number (in minutes)",
-        });
-      }
-    }
-
-    // Check if task exists
-    const checkResult = await pool.query("SELECT * FROM tasks WHERE id = $1", [
-      id,
-    ]);
-
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: "Task not found",
-      });
-    }
-
-    // Update focus duration
-    const result = await pool.query(
-      `UPDATE tasks 
-       SET focus_duration = $1, 
-           updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2 
-       RETURNING *`,
-      [focus_duration, id]
-    );
-
-    res.json({
-      success: true,
-      data: result.rows[0],
-      message: "Focus duration updated successfully",
-    });
-  } catch (error) {
-    console.error("Error updating focus duration:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to update focus duration",
       message: error.message,
     });
   }

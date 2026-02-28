@@ -5,7 +5,6 @@ import cron from "node-cron";
 import pool, { initDatabase } from "./db.js";
 import taskRoutes from "./routes/tasks.js";
 import settingsRoutes from "./routes/settings.js";
-import focusRoutes from "./routes/focus.js";
 
 dotenv.config();
 
@@ -53,9 +52,6 @@ app.use("/api/tasks", taskRoutes);
 
 // Settings routes
 app.use("/api/settings", settingsRoutes);
-
-// Focus routes
-app.use("/api/focus", focusRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -9,16 +8,8 @@ import {
 import ModeToggle from "@/components/ModeToggle";
 import ListPage from "./pages/ListPage";
 import SettingsPage from "./pages/SettingsPage";
-import { useFocusStore } from "@/store/focus";
 
 function App() {
-  const fetchActiveSession = useFocusStore((state) => state.fetchActiveSession);
-
-  // Fetch active focus session on app mount
-  useEffect(() => {
-    fetchActiveSession();
-  }, [fetchActiveSession]);
-
   return (
     <BrowserRouter>
       <div className="h-screen flex flex-col overflow-hidden">
