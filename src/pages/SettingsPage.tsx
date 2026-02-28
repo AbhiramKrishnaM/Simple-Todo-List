@@ -1,6 +1,25 @@
 import * as React from "react";
 import { motion } from "motion/react";
 import { useSettingsStore } from "../store/settings";
+import type { RowColors, RowColorTheme } from "../types";
+import {
+  ROW_COLOR_OPTIONS,
+  DEFAULT_ROW_COLORS,
+} from "../lib/priorityColors";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+
+const ROW_LABELS: Record<keyof RowColors, string> = {
+  very_urgent: "Very urgent row",
+  urgent: "Urgent row",
+  medium: "Medium row",
+  low: "Low row",
+};
 
 function SettingsPage() {
   const settings = useSettingsStore((s) => s.settings);
@@ -11,6 +30,7 @@ function SettingsPage() {
   const [numberOfTasks, setNumberOfTasks] = React.useState(7);
   const [showRemainingTodoCount, setShowRemainingTodoCount] =
     React.useState(true);
+  const [rowColors, setRowColors] = React.useState<RowColors>(DEFAULT_ROW_COLORS);
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(
@@ -25,6 +45,14 @@ function SettingsPage() {
     if (settings) {
       setNumberOfTasks(settings.numberOfTasks);
       setShowRemainingTodoCount(settings.showRemainingTodoCount ?? true);
+      if (settings.rowColors) {
+        setRowColors({
+          very_urgent: settings.rowColors.very_urgent ?? DEFAULT_ROW_COLORS.very_urgent,
+          urgent: settings.rowColors.urgent ?? DEFAULT_ROW_COLORS.urgent,
+          medium: settings.rowColors.medium ?? DEFAULT_ROW_COLORS.medium,
+          low: settings.rowColors.low ?? DEFAULT_ROW_COLORS.low,
+        });
+      }
     }
   }, [settings]);
 
@@ -34,7 +62,11 @@ function SettingsPage() {
       setError(null);
       setSuccessMessage(null);
 
-      await updateSettings({ numberOfTasks, showRemainingTodoCount });
+      await updateSettings({
+        numberOfTasks,
+        showRemainingTodoCount,
+        rowColors,
+      });
       setSuccessMessage("Settings saved successfully!");
 
       setTimeout(() => {
@@ -123,6 +155,54 @@ function SettingsPage() {
                 >
                   {isSaving ? "Saving..." : "Save Settings"}
                 </button>
+
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Priority row colors
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which color theme to use for each priority row on the
+                    list page.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(Object.keys(ROW_LABELS) as (keyof RowColors)[]).map(
+                      (key) => (
+                        <div
+                          key={key}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <label className="text-sm font-medium text-foreground shrink-0">
+                            {ROW_LABELS[key]}
+                          </label>
+                          <Select
+                            value={rowColors[key]}
+                            onValueChange={(v) =>
+                              setRowColors((prev) => ({
+                                ...prev,
+                                [key]: v as RowColorTheme,
+                              }))
+                            }
+                            disabled={isSaving}
+                          >
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROW_COLOR_OPTIONS.map((opt) => (
+                                <SelectItem
+                                  key={opt.value}
+                                  value={opt.value}
+                                >
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-border">
                   <label

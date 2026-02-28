@@ -1,8 +1,10 @@
 import apiClient from "./config";
+import type { RowColors } from "@/types";
 
 export interface Settings {
   numberOfTasks: number;
   showRemainingTodoCount?: boolean;
+  rowColors?: RowColors;
 }
 
 export interface SettingsResponse {

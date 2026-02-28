@@ -8,6 +8,25 @@ router.get("/", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM settings LIMIT 1");
 
+    const defaultRowColors = {
+      very_urgent: "red",
+      urgent: "yellow",
+      medium: "blue",
+      low: "green",
+    };
+
+    function rowColorsFromRow(row) {
+      if (!row.row_colors || typeof row.row_colors !== "object") {
+        return defaultRowColors;
+      }
+      return {
+        very_urgent: row.row_colors.very_urgent ?? defaultRowColors.very_urgent,
+        urgent: row.row_colors.urgent ?? defaultRowColors.urgent,
+        medium: row.row_colors.medium ?? defaultRowColors.medium,
+        low: row.row_colors.low ?? defaultRowColors.low,
+      };
+    }
+
     // If no settings exist, return default values
     if (result.rows.length === 0) {
       const defaultSettings = {
@@ -17,8 +36,12 @@ router.get("/", async (req, res) => {
 
       // Insert default settings
       const insertResult = await pool.query(
-        "INSERT INTO settings (number_of_tasks, show_remaining_todo_count) VALUES ($1, $2) RETURNING *",
-        [defaultSettings.numberOfTasks, defaultSettings.showRemainingTodoCount]
+        "INSERT INTO settings (number_of_tasks, show_remaining_todo_count, row_colors) VALUES ($1, $2, $3) RETURNING *",
+        [
+          defaultSettings.numberOfTasks,
+          defaultSettings.showRemainingTodoCount,
+          JSON.stringify(defaultRowColors),
+        ]
       );
 
       const row = insertResult.rows[0];
@@ -27,6 +50,7 @@ router.get("/", async (req, res) => {
         data: {
           numberOfTasks: row.number_of_tasks,
           showRemainingTodoCount: row.show_remaining_todo_count ?? true,
+          rowColors: rowColorsFromRow(row),
         },
       });
     }
@@ -37,6 +61,7 @@ router.get("/", async (req, res) => {
       data: {
         numberOfTasks: row.number_of_tasks,
         showRemainingTodoCount: row.show_remaining_todo_count ?? true,
+        rowColors: rowColorsFromRow(row),
       },
     });
   } catch (error) {
@@ -52,7 +77,7 @@ router.get("/", async (req, res) => {
 // PUT update settings
 router.put("/", async (req, res) => {
   try {
-    const { numberOfTasks, showRemainingTodoCount } = req.body;
+    const { numberOfTasks, showRemainingTodoCount, rowColors } = req.body;
 
     // Validation
     if (numberOfTasks === undefined || numberOfTasks === null) {
@@ -76,6 +101,29 @@ router.put("/", async (req, res) => {
         ? true
         : Boolean(showRemainingTodoCount);
 
+    const validThemes = ["red", "yellow", "blue", "green"];
+    const defaultRowColors = {
+      very_urgent: "red",
+      urgent: "yellow",
+      medium: "blue",
+      low: "green",
+    };
+    let rowColorsValue = defaultRowColors;
+    if (
+      rowColors &&
+      typeof rowColors === "object" &&
+      [rowColors.very_urgent, rowColors.urgent, rowColors.medium, rowColors.low].every(
+        (v) => v == null || validThemes.includes(v)
+      )
+    ) {
+      rowColorsValue = {
+        very_urgent: rowColors.very_urgent ?? defaultRowColors.very_urgent,
+        urgent: rowColors.urgent ?? defaultRowColors.urgent,
+        medium: rowColors.medium ?? defaultRowColors.medium,
+        low: rowColors.low ?? defaultRowColors.low,
+      };
+    }
+
     // Check if settings exist
     const checkResult = await pool.query("SELECT id FROM settings LIMIT 1");
 
@@ -83,23 +131,35 @@ router.put("/", async (req, res) => {
     if (checkResult.rows.length === 0) {
       // Insert new settings
       result = await pool.query(
-        "INSERT INTO settings (number_of_tasks, show_remaining_todo_count) VALUES ($1, $2) RETURNING *",
-        [taskCount, showCount]
+        "INSERT INTO settings (number_of_tasks, show_remaining_todo_count, row_colors) VALUES ($1, $2, $3) RETURNING *",
+        [taskCount, showCount, JSON.stringify(rowColorsValue)]
       );
     } else {
       // Update existing settings
       result = await pool.query(
-        "UPDATE settings SET number_of_tasks = $1, show_remaining_todo_count = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *",
-        [taskCount, showCount, checkResult.rows[0].id]
+        "UPDATE settings SET number_of_tasks = $1, show_remaining_todo_count = $2, row_colors = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *",
+        [
+          taskCount,
+          showCount,
+          JSON.stringify(rowColorsValue),
+          checkResult.rows[0].id,
+        ]
       );
     }
 
     const row = result.rows[0];
+    const rowColorsFromRow = (r) => ({
+      very_urgent: r.row_colors?.very_urgent ?? defaultRowColors.very_urgent,
+      urgent: r.row_colors?.urgent ?? defaultRowColors.urgent,
+      medium: r.row_colors?.medium ?? defaultRowColors.medium,
+      low: r.row_colors?.low ?? defaultRowColors.low,
+    });
     res.json({
       success: true,
       data: {
         numberOfTasks: row.number_of_tasks,
         showRemainingTodoCount: row.show_remaining_todo_count ?? true,
+        rowColors: rowColorsFromRow(row),
       },
       message: "Settings updated successfully",
     });
