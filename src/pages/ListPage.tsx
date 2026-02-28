@@ -3,12 +3,12 @@ import { Plus } from "lucide-react";
 import AddTask from "../components/AddTask";
 import AddTaskModal from "../components/AddTaskModal";
 import TaskCard from "../components/TaskCard";
+import TaskNotesModal from "../components/TaskNotesModal";
 import type { Task } from "../types";
 import { useTasksStore } from "../store/tasks";
 import { useSettingsStore } from "../store/settings";
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -47,9 +47,7 @@ function DroppableZone({
       ref={setNodeRef}
       className={`rounded-lg transition-all ${
         isEmpty ? "min-h-[200px]" : "min-h-[120px]"
-      } ${
-        isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
-      }`}
+      } ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
     >
       {children}
     </div>
@@ -91,6 +89,8 @@ function ListPage() {
   const [addModalPriority, setAddModalPriority] = React.useState<
     "very_urgent" | "urgent" | "medium" | "low"
   >("medium");
+  const [notesModalOpen, setNotesModalOpen] = React.useState(false);
+  const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
   React.useEffect(() => {
     fetchTasks();
@@ -232,18 +232,20 @@ function ListPage() {
   const activeTask =
     activeId != null ? (tasks.find((t) => t.id === activeId) ?? null) : null;
 
-  async function handlePriorityChange(
-    taskId: string,
-    priority: "very_urgent" | "urgent" | "medium" | "low",
-  ) {
+  function handleCardClick(task: Task) {
+    setSelectedTask(task);
+    setNotesModalOpen(true);
+  }
+
+  async function handleNotesSave(taskId: string, notes: string) {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
     try {
       await updateTask(taskId, {
-        meta: { ...task.meta, priority },
+        meta: { ...task.meta, notes },
       });
     } catch (err) {
-      console.error("Failed to update priority:", err);
+      console.error("Failed to update notes:", err);
     }
   }
 
@@ -348,8 +350,8 @@ function ListPage() {
                       ? "Medium"
                       : "Low";
               return (
-                <DroppableZone 
-                  key={priority} 
+                <DroppableZone
+                  key={priority}
                   id={`droppable-${priority}`}
                   isEmpty={rowTasks.length === 0}
                 >
@@ -381,7 +383,7 @@ function ListPage() {
                               checked={t.completed}
                               onToggle={(id) => handleToggle(id)}
                               onRemove={(id) => handleRemove(id)}
-                              onPriorityChange={handlePriorityChange}
+                              onCardClick={handleCardClick}
                               cardClassName={undefined}
                               priorityIndicatorClass={getPriorityIndicatorClass(
                                 priority,
@@ -430,6 +432,13 @@ function ListPage() {
           </div>
         </div>
       )}
+
+      <TaskNotesModal
+        task={selectedTask}
+        open={notesModalOpen}
+        onOpenChange={setNotesModalOpen}
+        onSave={handleNotesSave}
+      />
     </div>
   );
 }

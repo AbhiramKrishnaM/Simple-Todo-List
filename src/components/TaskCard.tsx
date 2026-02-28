@@ -7,23 +7,13 @@ import type { Task } from "@/types";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type TaskCardProps = {
   task: Task;
   checked?: boolean;
   onToggle?: (taskId: string) => void;
   onRemove?: (taskId: string) => void;
-  onPriorityChange?: (
-    taskId: string,
-    priority: "very_urgent" | "urgent" | "medium" | "low",
-  ) => void;
+  onCardClick?: (task: Task) => void;
   className?: string;
   cardClassName?: string;
   priorityIndicatorClass?: string;
@@ -53,7 +43,7 @@ export default function TaskCard({
   checked,
   onToggle,
   onRemove,
-  onPriorityChange,
+  onCardClick,
   className,
   cardClassName,
   priorityIndicatorClass,
@@ -90,6 +80,10 @@ export default function TaskCard({
     onRemove?.(task.id);
   }
 
+  function handleCardClick() {
+    onCardClick?.(task);
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -111,6 +105,7 @@ export default function TaskCard({
             {...attributes}
             {...listeners}
             className="cursor-grab active:cursor-grabbing shrink-0 text-gray-400 hover:text-gray-600"
+            onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="size-5" />
           </div>
@@ -126,55 +121,42 @@ export default function TaskCard({
           />
         )}
 
-        <Checkbox
-          checked={isChecked}
-          onCheckedChange={(v) => handleCheckedChange(Boolean(v))}
-          aria-label={isChecked ? "Mark task as not done" : "Mark task as done"}
-          className="size-5 shrink-0 rounded-md"
-        />
-
-        <span
-          className={cn(
-            "text-[15px] font-medium text-gray-700 break-words whitespace-nowrap flex-1",
-            isChecked && "line-through text-gray-400",
-          )}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
         >
-          {task.title}
-        </span>
-
-        {!checked && onPriorityChange && (
-          <Select
-            value={priority}
-            onValueChange={(v) =>
-              onPriorityChange(
-                task.id,
-                v as "very_urgent" | "urgent" | "medium" | "low",
-              )
+          <Checkbox
+            checked={isChecked}
+            onCheckedChange={(v) => handleCheckedChange(Boolean(v))}
+            aria-label={
+              isChecked ? "Mark task as not done" : "Mark task as done"
             }
+            className="size-5 shrink-0 rounded-md"
+          />
+        </div>
+
+        <div className="flex-1 cursor-pointer" onClick={handleCardClick}>
+          <span
+            className={cn(
+              "text-[15px] font-medium text-gray-700 break-words whitespace-nowrap transition-colors",
+              isChecked && "line-through text-gray-400",
+              !isChecked && "hover:text-blue-600",
+            )}
           >
-            <SelectTrigger
-              className="w-[90px] h-8 shrink-0 text-xs"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="very_urgent">
-                {PRIORITY_LABELS.very_urgent}
-              </SelectItem>
-              <SelectItem value="urgent">{PRIORITY_LABELS.urgent}</SelectItem>
-              <SelectItem value="medium">{PRIORITY_LABELS.medium}</SelectItem>
-              <SelectItem value="low">{PRIORITY_LABELS.low}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+            {task.title}
+          </span>
+        </div>
 
         <Button
           type="button"
           size="icon-sm"
           variant="ghost"
           aria-label="Remove task"
-          onClick={handleRemove}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRemove();
+          }}
           className={cn(
             "shrink-0 text-gray-500 hover:text-gray-900",
             isCompletedState && "opacity-70",

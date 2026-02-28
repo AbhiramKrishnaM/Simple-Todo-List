@@ -82,13 +82,13 @@ const cleanupCompletedTasks = async () => {
        AND completed_at IS NOT NULL 
        AND completed_at < $1 
        RETURNING id, title`,
-      [fourHoursAgo]
+      [fourHoursAgo],
     );
 
     if (result.rows.length > 0) {
       console.log(
         `🗑️  Auto-deleted ${result.rows.length} completed task(s):`,
-        result.rows.map((row) => `"${row.title}"`).join(", ")
+        result.rows.map((row) => `"${row.title}"`).join(", "),
       );
     }
   } catch (error) {
@@ -119,7 +119,7 @@ const startServer = async () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📝 API endpoint: http://localhost:${PORT}/api/tasks`);
       console.log(
-        `⏰ Auto-deletion: Completed tasks will be deleted after 4 hours`
+        `⏰ Auto-deletion: Completed tasks will be deleted after 4 hours`,
       );
     });
   } catch (error) {

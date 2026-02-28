@@ -4,6 +4,8 @@ export interface TaskMeta {
   priority?: Priority;
   /** Position within the priority row (1–5) for display order in that row. */
   position?: number;
+  /** Notes or additional details for the task */
+  notes?: string;
   [key: string]: unknown;
 }
 
