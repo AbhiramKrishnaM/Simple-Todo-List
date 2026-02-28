@@ -12,15 +12,13 @@ function SettingsPage() {
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(
-    null
+    null,
   );
 
-  // Load settings on mount
   React.useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
-  // Update local state when settings are loaded
   React.useEffect(() => {
     if (settings) {
       setNumberOfTasks(settings.numberOfTasks);
@@ -36,7 +34,6 @@ function SettingsPage() {
       await updateSettings({ numberOfTasks });
       setSuccessMessage("Settings saved successfully!");
 
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
       }, 3000);
@@ -70,7 +67,6 @@ function SettingsPage() {
       <div className="w-full max-w-2xl">
         <h1 className="text-3xl font-bold text-foreground mb-8">Settings</h1>
 
-        {/* Task Limit Configuration Section */}
         <div className="space-y-6">
           <motion.div
             className="p-6 rounded-lg border border-border bg-card"
@@ -90,7 +86,6 @@ function SettingsPage() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Number Input Controls */}
                 <div className="flex items-center justify-center gap-4">
                   <button
                     onClick={handleDecrement}
@@ -118,7 +113,6 @@ function SettingsPage() {
                   </button>
                 </div>
 
-                {/* Save Button */}
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
@@ -127,7 +121,6 @@ function SettingsPage() {
                   {isSaving ? "Saving..." : "Save Settings"}
                 </button>
 
-                {/* Error/Success Messages */}
                 {error && (
                   <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                     {error}

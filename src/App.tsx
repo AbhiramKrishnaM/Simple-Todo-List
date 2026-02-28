@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 import ModeToggle from "@/components/ModeToggle";
 import ListPage from "./pages/ListPage";
-import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import { useFocusStore } from "@/store/focus";
 
@@ -43,18 +42,6 @@ function App() {
               List
             </NavLink>
             <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                `text-sm font-medium px-3 py-2 rounded-md transition-all ${
-                  isActive
-                    ? "text-primary bg-primary/10 border-b-2 border-primary"
-                    : "text-foreground hover:text-primary hover:bg-accent"
-                }`
-              }
-            >
-              Dashboard
-            </NavLink>
-            <NavLink
               to="/settings"
               className={({ isActive }) =>
                 `text-sm font-medium px-3 py-2 rounded-md transition-all ${
@@ -78,7 +65,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/list" replace />} />
           <Route path="/list" element={<ListPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<Navigate to="/list" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>
