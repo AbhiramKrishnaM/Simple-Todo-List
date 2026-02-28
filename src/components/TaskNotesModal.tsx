@@ -1,4 +1,5 @@
 import * as React from "react";
+import MDEditor from "@uiw/react-md-editor";
 import {
   Dialog,
   DialogContent,
@@ -6,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@/types";
 
@@ -42,22 +42,26 @@ export default function TaskNotesModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl">{task.title}</DialogTitle>
           <DialogDescription>
-            Add notes, steps, or additional details for this task
+            Add notes, steps, or additional details for this task. Supports Markdown formatting.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 py-4">
-          <Textarea
-            placeholder="Add your notes here..."
+        <div className="flex-1 overflow-auto py-4" data-color-mode="light">
+          <MDEditor
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="min-h-[200px] text-base"
+            onChange={(val) => setNotes(val || "")}
+            preview="live"
+            height={400}
+            visibleDragbar={false}
+            textareaProps={{
+              placeholder: "# Add your notes here\n\nSupports:\n- **Bold** and *italic*\n- Lists and checklists\n- Code blocks\n- Links and more!"
+            }}
           />
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <Button
             type="button"
             variant="outline"
