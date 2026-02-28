@@ -95,9 +95,8 @@ export default function TaskCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex flex-col w-full min-w-[180px] max-w-[260px] rounded-2xl px-4 py-3 min-h-[72px]",
-        !isCompletedState &&
-          "bg-background border border-input shadow-md",
+        "flex flex-col rounded-2xl px-4 py-3 min-h-[72px] w-auto",
+        !isCompletedState && "bg-background border border-input shadow-md",
         isCompletedState && "bg-gray-100 border-0 shadow-none opacity-90",
         cardClassName,
         isDragging && "opacity-0",
@@ -106,17 +105,16 @@ export default function TaskCard({
       role="group"
       aria-disabled={isCompletedState}
     >
-      <div className="flex w-full items-center gap-2">
+      <div className="flex w-full items-start gap-2">
         {!checked && (
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing shrink-0 text-gray-400 hover:text-gray-600"
+            className="cursor-grab active:cursor-grabbing shrink-0 pt-0.5 text-gray-400 hover:text-gray-600"
           >
             <GripVertical className="size-5" />
           </div>
         )}
-
         {priorityIndicatorClass && (
           <div
             className={cn(
@@ -132,12 +130,12 @@ export default function TaskCard({
           checked={isChecked}
           onCheckedChange={(v) => handleCheckedChange(Boolean(v))}
           aria-label={isChecked ? "Mark task as not done" : "Mark task as done"}
-          className="size-5 rounded-md shrink-0"
+          className="size-5 shrink-0 mt-0.5 rounded-md"
         />
 
         <span
           className={cn(
-            "flex-1 text-[15px] font-medium min-w-0 truncate text-gray-700",
+            "text-[15px] font-medium text-gray-700 break-words whitespace-nowrap",
             isChecked && "line-through text-gray-400",
           )}
         >

@@ -2,6 +2,8 @@ export type Priority = "very_urgent" | "urgent" | "medium" | "low";
 
 export interface TaskMeta {
   priority?: Priority;
+  /** Position within the priority row (1–5) for display order in that row. */
+  position?: number;
   [key: string]: unknown;
 }
 

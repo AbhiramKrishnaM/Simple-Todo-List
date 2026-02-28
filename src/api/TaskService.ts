@@ -5,6 +5,7 @@ import type {
   UpdateTaskRequest,
   TaskResponse,
   TasksResponse,
+  TasksListData,
   HealthResponse,
 } from "./types";
 
@@ -15,12 +16,38 @@ class TaskService {
   private readonly endpoint = "/tasks";
 
   /**
-   * Fetch all tasks from the server
+   * Fetch all tasks from the server.
+   * API returns data as object { "0": {...}, "1": {...} }; we convert to Task[] ordered by display_order.
    */
   async getAllTasks(): Promise<Task[]> {
     try {
       const response = await apiClient.get<TasksResponse>(this.endpoint);
-      return response.data.data || [];
+      const data = response.data.data;
+      if (!data) return [];
+
+      if (Array.isArray(data)) {
+        return data as Task[];
+      }
+
+      const obj = data as TasksListData;
+      const entries = Object.entries(obj).sort(
+        (a, b) => (a[1].display_order ?? 0) - (b[1].display_order ?? 0),
+      );
+      return entries.map(([, v]) => {
+        const meta = (
+          v.meta && typeof v.meta === "object" ? v.meta : {}
+        ) as Record<string, unknown>;
+        if (v.priority !== undefined) meta.priority = v.priority;
+        if (v.position !== undefined) meta.position = v.position;
+        return {
+          id: v.id,
+          title: v.title,
+          timestamp: v.created_at ? new Date(v.created_at).getTime() : 0,
+          completed: v.completed,
+          display_order: v.display_order,
+          meta,
+        };
+      }) as Task[];
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
       throw new Error("Failed to fetch tasks from server");
@@ -33,7 +60,7 @@ class TaskService {
   async getTaskById(id: string): Promise<Task> {
     try {
       const response = await apiClient.get<TaskResponse>(
-        `${this.endpoint}/${id}`
+        `${this.endpoint}/${id}`,
       );
       if (!response.data.data) {
         throw new Error("Task not found");
@@ -52,7 +79,7 @@ class TaskService {
     try {
       const response = await apiClient.post<TaskResponse>(
         this.endpoint,
-        taskData
+        taskData,
       );
       if (!response.data.data) {
         throw new Error("Failed to create task");
@@ -71,7 +98,7 @@ class TaskService {
     try {
       const response = await apiClient.put<TaskResponse>(
         `${this.endpoint}/${id}`,
-        updates
+        updates,
       );
       if (!response.data.data) {
         throw new Error("Failed to update task");
@@ -89,7 +116,7 @@ class TaskService {
   async toggleTask(id: string): Promise<Task> {
     try {
       const response = await apiClient.patch<TaskResponse>(
-        `${this.endpoint}/${id}/toggle`
+        `${this.endpoint}/${id}/toggle`,
       );
       if (!response.data.data) {
         throw new Error("Failed to toggle task");
@@ -142,7 +169,7 @@ class TaskService {
    * Bulk update task order
    */
   async reorderTasks(
-    tasks: { id: string; display_order: number }[]
+    tasks: { id: string; display_order: number }[],
   ): Promise<void> {
     try {
       await apiClient.patch(`${this.endpoint}/bulk-reorder`, { tasks });
@@ -151,7 +178,6 @@ class TaskService {
       throw new Error("Failed to reorder tasks on server");
     }
   }
-
 }
 
 // Export a singleton instance

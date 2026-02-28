@@ -4,16 +4,34 @@ import { generateId } from "../utils/helpers.js";
 
 const router = express.Router();
 
-// GET all tasks
+// GET all tasks – returns data as object keyed by index with simplified fields
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM tasks ORDER BY display_order ASC"
+      "SELECT * FROM tasks ORDER BY display_order ASC",
     );
+
+    const data = {};
+    const defaultMeta = {};
+    result.rows.forEach((row, i) => {
+      const meta =
+        row.meta && typeof row.meta === "object" ? row.meta : defaultMeta;
+      data[String(i)] = {
+        id: row.id,
+        title: row.title,
+        completed: row.completed,
+        meta,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        display_order: row.display_order,
+        priority: row.priority ?? meta.priority ?? "medium",
+        position: row.position ?? meta.position,
+      };
+    });
 
     res.json({
       success: true,
-      data: result.rows,
+      data,
       count: result.rows.length,
     });
   } catch (error) {
@@ -66,24 +84,26 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Create new task
+    const metaObj = meta && typeof meta === "object" ? meta : {};
+    const priority = metaObj.priority ?? "medium";
+    const position = metaObj.position ?? null;
+
     const newTask = {
       id: generateId(),
       title: title.trim(),
       timestamp: Date.now(),
       completed: completed ?? false,
-      meta: meta ?? {},
+      meta: metaObj,
     };
 
-    // Get the highest order and add 1
     const orderResult = await pool.query(
-      "SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM tasks"
+      "SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM tasks",
     );
     const nextOrder = orderResult.rows[0].next_order;
 
     const result = await pool.query(
-      `INSERT INTO tasks (id, title, timestamp, completed, meta, display_order)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO tasks (id, title, timestamp, completed, meta, display_order, priority, position)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         newTask.id,
@@ -92,7 +112,9 @@ router.post("/", async (req, res) => {
         newTask.completed,
         JSON.stringify(newTask.meta),
         nextOrder,
-      ]
+        priority,
+        position,
+      ],
     );
 
     res.status(201).json({
@@ -144,6 +166,14 @@ router.put("/:id", async (req, res) => {
     if (meta !== undefined) {
       updates.push(`meta = $${paramCount++}`);
       values.push(JSON.stringify(meta));
+      if (meta.priority !== undefined) {
+        updates.push(`priority = $${paramCount++}`);
+        values.push(meta.priority);
+      }
+      if (meta.position !== undefined) {
+        updates.push(`position = $${paramCount++}`);
+        values.push(meta.position);
+      }
     }
 
     // Always update the updated_at timestamp
@@ -184,7 +214,7 @@ router.patch("/:id/toggle", async (req, res) => {
     // First get the current task to check its completion status
     const currentTask = await pool.query(
       "SELECT completed FROM tasks WHERE id = $1",
-      [id]
+      [id],
     );
 
     if (currentTask.rows.length === 0) {
@@ -207,13 +237,13 @@ router.patch("/:id/toggle", async (req, res) => {
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2 
        RETURNING *`,
-      [newCompleted, id]
+      [newCompleted, id],
     );
 
     res.json({
       success: true,
       data: result.rows[0],
-      message: `Task ${newCompleted ? 'completed' : 'marked as incomplete'}`,
+      message: `Task ${newCompleted ? "completed" : "marked as incomplete"}`,
     });
   } catch (error) {
     console.error("Error toggling task:", error);
@@ -232,7 +262,7 @@ router.delete("/:id", async (req, res) => {
 
     const result = await pool.query(
       "DELETE FROM tasks WHERE id = $1 RETURNING *",
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
@@ -294,16 +324,35 @@ router.patch("/bulk-reorder", async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // Update each task's order
+      // Update each task's order (and optionally meta for position within priority row)
       for (const task of tasks) {
         if (!task.id || task.display_order === undefined) {
           throw new Error("Each task must have id and display_order");
         }
-        
-        await client.query(
-          "UPDATE tasks SET display_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-          [task.display_order, task.id]
-        );
+
+        if (
+          task.meta !== undefined &&
+          task.meta !== null &&
+          typeof task.meta === "object"
+        ) {
+          const metaPriority = task.meta.priority ?? null;
+          const metaPosition = task.meta.position ?? null;
+          await client.query(
+            "UPDATE tasks SET display_order = $1, meta = $2, priority = COALESCE($3, priority), position = COALESCE($4, position), updated_at = CURRENT_TIMESTAMP WHERE id = $5",
+            [
+              task.display_order,
+              JSON.stringify(task.meta),
+              metaPriority,
+              metaPosition,
+              task.id,
+            ],
+          );
+        } else {
+          await client.query(
+            "UPDATE tasks SET display_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+            [task.display_order, task.id],
+          );
+        }
       }
 
       await client.query("COMMIT");

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
+import AddTask from "../components/AddTask";
 import AddTaskModal from "../components/AddTaskModal";
 import TaskCard from "../components/TaskCard";
 import type { Task } from "../types";
@@ -26,11 +27,24 @@ import {
   getPriorityIndicatorClass,
 } from "../lib/priorityColors";
 
+const MAX_TASKS_PER_PRIORITY = 5;
+
 function getPriority(task: Task): "very_urgent" | "urgent" | "medium" | "low" {
   const p = task.meta?.priority;
   if (p === "very_urgent" || p === "urgent" || p === "medium" || p === "low")
     return p;
   return "medium";
+}
+
+/** Returns the next priority to assign when adding from the top input: fill very_urgent first (up to 5), then urgent, medium, low. */
+function getNextPriorityToFill(
+  tasksByPriority: Record<"very_urgent" | "urgent" | "medium" | "low", Task[]>,
+): "very_urgent" | "urgent" | "medium" | "low" {
+  for (const p of PRIORITY_ORDER) {
+    const uncompletedInRow = tasksByPriority[p].filter((t) => !t.completed);
+    if (uncompletedInRow.length < MAX_TASKS_PER_PRIORITY) return p;
+  }
+  return "low";
 }
 
 function ListPage() {
@@ -40,7 +54,6 @@ function ListPage() {
   const toggleTask = useTasksStore((s) => s.toggleTask);
   const removeTask = useTasksStore((s) => s.removeTask);
   const updateTask = useTasksStore((s) => s.updateTask);
-  const reorderTasks = useTasksStore((s) => s.reorderTasks);
   const error = useTasksStore((s) => s.error);
 
   const settings = useSettingsStore((s) => s.settings);
@@ -58,16 +71,7 @@ function ListPage() {
     fetchSettings();
   }, [fetchTasks, fetchSettings]);
 
-  const { tasksByPriority, completedTasks } = React.useMemo(() => {
-    const completed = tasks.filter((task) => task.completed);
-
-    const sortByOrder = (a: Task, b: Task) => {
-      if (a.display_order !== undefined && b.display_order !== undefined) {
-        return a.display_order - b.display_order;
-      }
-      return a.timestamp - b.timestamp;
-    };
-
+  const { tasksByPriority } = React.useMemo(() => {
     const byPriority: Record<
       "very_urgent" | "urgent" | "medium" | "low",
       Task[]
@@ -77,25 +81,33 @@ function ListPage() {
       medium: [],
       low: [],
     };
-    // Include all tasks (completed + uncompleted) in priority rows; sort by order then completed last
-    [...tasks]
-      .sort((a, b) => {
-        const order = sortByOrder(a, b);
-        if (order !== 0) return order;
-        return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
-      })
-      .forEach((t) => {
-        byPriority[getPriority(t)].push(t);
-      });
+
+    tasks.forEach((t) => {
+      byPriority[getPriority(t)].push(t);
+    });
+
+    // Within each priority row, sort by position (1–5)
+    const sortByPosition = (a: Task, b: Task) => {
+      const posA = a.meta?.position ?? 999;
+      const posB = b.meta?.position ?? 999;
+      if (posA !== posB) return posA - posB;
+      return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
+    };
+    
+    PRIORITY_ORDER.forEach((p) => {
+      byPriority[p].sort(sortByPosition);
+    });
 
     return {
       tasksByPriority: byPriority,
-      completedTasks: [...completed].sort(sortByOrder),
     };
   }, [tasks]);
 
   const uncompletedTasks = React.useMemo(
-    () => PRIORITY_ORDER.flatMap((p) => tasksByPriority[p]),
+    () =>
+      PRIORITY_ORDER.flatMap((p) =>
+        tasksByPriority[p].filter((t) => !t.completed),
+      ),
     [tasksByPriority],
   );
 
@@ -110,6 +122,54 @@ function ListPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over || active.id === over.id) return;
+
+    const draggedTask = tasks.find((t) => t.id === active.id);
+    const targetTask = tasks.find((t) => t.id === over.id);
+    if (!draggedTask || !targetTask) return;
+
+    const draggedPriority = getPriority(draggedTask);
+    const targetPriority = getPriority(targetTask);
+
+    if (draggedPriority !== targetPriority) return;
+
+    const rowTasks = tasksByPriority[draggedPriority].filter(
+      (t) => !t.completed,
+    );
+    const oldIndex = rowTasks.findIndex((t) => t.id === active.id);
+    const newIndex = rowTasks.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(rowTasks, oldIndex, newIndex);
+
+    const updatesPromises = reordered.map((task, index) =>
+      updateTask(task.id, {
+        meta: { ...task.meta, priority: draggedPriority, position: index + 1 },
+      }),
+    );
+
+    try {
+      await Promise.all(updatesPromises);
+      await fetchTasks();
+    } catch (err) {
+      console.error("Failed to reorder tasks:", err);
+    }
+  }
+
+  function handleDragCancel() {
+    setActiveId(null);
+  }
+
+  const activeTask =
+    activeId != null ? (tasks.find((t) => t.id === activeId) ?? null) : null;
 
   async function handlePriorityChange(
     taskId: string,
@@ -138,11 +198,20 @@ function ListPage() {
     }
 
     setLimitError(null);
+    const priority =
+      task.meta?.priority ?? getNextPriorityToFill(tasksByPriority);
+    const uncompletedInRow = tasksByPriority[priority].filter(
+      (t) => !t.completed,
+    );
+    const position = Math.min(
+      uncompletedInRow.length + 1,
+      MAX_TASKS_PER_PRIORITY,
+    );
     try {
       await createTask({
         title: task.title,
         completed: task.completed,
-        meta: { ...task.meta, priority: task.meta?.priority ?? "medium" },
+        meta: { ...task.meta, priority, position },
       });
     } catch (error) {
       console.error("Failed to add task:", error);
@@ -165,46 +234,6 @@ function ListPage() {
     }
   }
 
-  function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id as string);
-  }
-
-  async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) {
-      setActiveId(null);
-      return;
-    }
-
-    const oldIndex = uncompletedTasks.findIndex(
-      (task) => task.id === active.id,
-    );
-    const newIndex = uncompletedTasks.findIndex((task) => task.id === over.id);
-
-    if (oldIndex !== -1 && newIndex !== -1) {
-      const reordered = arrayMove(uncompletedTasks, oldIndex, newIndex);
-
-      const allTasks = [...reordered, ...completedTasks];
-
-      try {
-        await reorderTasks(allTasks);
-      } catch (error) {
-        console.error("Failed to reorder tasks:", error);
-      }
-    }
-
-    setActiveId(null);
-  }
-
-  function handleDragCancel() {
-    setActiveId(null);
-  }
-
-  const activeTask = activeId
-    ? uncompletedTasks.find((task) => task.id === activeId)
-    : null;
-
   return (
     <div
       className={[
@@ -217,18 +246,7 @@ function ListPage() {
           Your To Do
         </div>
         <div className="w-full max-w-md flex justify-center">
-          <button
-            type="button"
-            onClick={() => {
-              setAddModalPriority("medium");
-              setAddModalOpen(true);
-            }}
-            className="w-fit flex items-center gap-2 rounded-lg border border-dashed border-input px-4 py-3 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted/50 transition-colors"
-            aria-label="Add new task"
-          >
-            <Plus className="size-5" />
-            <span>Add new task</span>
-          </button>
+          <AddTask onAdd={handleAdd} placeholder="Add new task" />
         </div>
         <AddTaskModal
           open={addModalOpen}
@@ -249,7 +267,7 @@ function ListPage() {
         )}
       </div>
 
-      <div className="w-full flex-1 px-2 pt-1 min-h-0 overflow-y-auto">
+      <div className="w-full flex-1 px-2 pt-1 min-h-0">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -285,17 +303,11 @@ function ListPage() {
                     <Plus className="size-8" />
                   </button>
                   {rowTasks.length > 0 && (
-                    <div
-                      className="grid gap-3"
-                      style={{
-                        gridTemplateColumns:
-                          "repeat(auto-fill, minmax(180px, 240px))",
-                      }}
+                    <SortableContext
+                      items={rowTasks.map((t) => t.id)}
+                      strategy={rectSortingStrategy}
                     >
-                      <SortableContext
-                        items={rowTasks.map((t) => t.id)}
-                        strategy={rectSortingStrategy}
-                      >
+                      <div className="flex flex-wrap gap-3">
                         {rowTasks.map((t) => (
                           <TaskCard
                             key={t.id}
@@ -311,8 +323,8 @@ function ListPage() {
                             )}
                           />
                         ))}
-                      </SortableContext>
-                    </div>
+                      </div>
+                    </SortableContext>
                   )}
                 </div>
               );
@@ -326,7 +338,7 @@ function ListPage() {
             }}
           >
             {activeTask ? (
-              <div className="rotate-3 scale-105 cursor-grabbing shadow-2xl">
+              <div className="rotate-2 scale-105 cursor-grabbing shadow-2xl">
                 <TaskCard
                   task={activeTask}
                   checked={activeTask.completed}
