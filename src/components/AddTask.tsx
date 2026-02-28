@@ -28,7 +28,6 @@ export default function AddTask({
     const task: Task = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: trimmed,
-      priority: 1, // This value will be replaced by backend auto-assignment
       timestamp: Date.now(),
       completed: false,
       meta: {},

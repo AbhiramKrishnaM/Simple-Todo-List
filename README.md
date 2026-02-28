@@ -10,5 +10,4 @@ A modern, full-stack todo list application built with React, TypeScript, and Nod
 - 📱 Responsive design
 - ⚡ Optimistic UI updates
 - 🔔 Error handling and user feedback
-- 🎯 Task priority management
 - ✨ Smooth animations with Framer Motion

@@ -12,14 +12,12 @@ export interface ApiResponse<T> {
 // Request types
 export interface CreateTaskRequest {
   title: string;
-  priority?: number;
   completed?: boolean;
   meta?: Record<string, unknown>;
 }
 
 export interface UpdateTaskRequest {
   title?: string;
-  priority?: number;
   completed?: boolean;
   meta?: Record<string, unknown>;
 }

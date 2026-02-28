@@ -33,7 +33,6 @@ export const initDatabase = async () => {
         id VARCHAR(255) PRIMARY KEY,
         title TEXT NOT NULL,
         timestamp BIGINT NOT NULL,
-        priority INTEGER NOT NULL,
         completed BOOLEAN DEFAULT FALSE,
         meta JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

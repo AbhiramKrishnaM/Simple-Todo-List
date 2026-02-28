@@ -8,7 +8,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM tasks ORDER BY priority ASC, display_order ASC"
+      "SELECT * FROM tasks ORDER BY display_order ASC"
     );
 
     res.json({
@@ -56,7 +56,7 @@ router.get("/:id", async (req, res) => {
 // POST create new task
 router.post("/", async (req, res) => {
   try {
-    const { title, priority, completed, meta } = req.body;
+    const { title, completed, meta } = req.body;
 
     // Validation
     if (!title || title.trim() === "") {
@@ -66,36 +66,11 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Auto-assign priority if not provided
-    // Find the lowest available priority among incomplete tasks
-    let taskPriority;
-    if (priority !== undefined && priority !== null) {
-      taskPriority = Number(priority);
-    } else {
-      // Get all priorities from incomplete tasks, sorted
-      const priorityResult = await pool.query(
-        "SELECT priority FROM tasks WHERE completed = false ORDER BY priority ASC"
-      );
-      
-      const existingPriorities = priorityResult.rows.map(row => row.priority);
-      
-      // Find the first gap in the sequence (starting from 1)
-      taskPriority = 1;
-      for (const existingPriority of existingPriorities) {
-        if (existingPriority === taskPriority) {
-          taskPriority++;
-        } else {
-          break;
-        }
-      }
-    }
-
     // Create new task
     const newTask = {
       id: generateId(),
       title: title.trim(),
       timestamp: Date.now(),
-      priority: taskPriority,
       completed: completed ?? false,
       meta: meta ?? {},
     };
@@ -107,14 +82,13 @@ router.post("/", async (req, res) => {
     const nextOrder = orderResult.rows[0].next_order;
 
     const result = await pool.query(
-      `INSERT INTO tasks (id, title, timestamp, priority, completed, meta, display_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO tasks (id, title, timestamp, completed, meta, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
         newTask.id,
         newTask.title,
         newTask.timestamp,
-        newTask.priority,
         newTask.completed,
         JSON.stringify(newTask.meta),
         nextOrder,
@@ -140,7 +114,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, priority, completed, meta } = req.body;
+    const { title, completed, meta } = req.body;
 
     // Check if task exists
     const checkResult = await pool.query("SELECT * FROM tasks WHERE id = $1", [
@@ -162,10 +136,6 @@ router.put("/:id", async (req, res) => {
     if (title !== undefined) {
       updates.push(`title = $${paramCount++}`);
       values.push(title.trim());
-    }
-    if (priority !== undefined) {
-      updates.push(`priority = $${paramCount++}`);
-      values.push(Number(priority));
     }
     if (completed !== undefined) {
       updates.push(`completed = $${paramCount++}`);
@@ -356,96 +326,6 @@ router.patch("/bulk-reorder", async (req, res) => {
       error: "Failed to update task order",
       message: error.message,
     });
-  }
-});
-
-// PATCH assign priority to a task (with uniqueness handling)
-router.patch("/:id/assign-priority", async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const { id } = req.params;
-    const { priority } = req.body;
-
-    // Validation
-    if (priority === undefined || priority === null) {
-      return res.status(400).json({
-        success: false,
-        error: "Priority is required",
-      });
-    }
-
-    const priorityNum = Number(priority);
-    if (isNaN(priorityNum) || priorityNum < 1) {
-      return res.status(400).json({
-        success: false,
-        error: "Priority must be a positive number",
-      });
-    }
-
-    await client.query("BEGIN");
-
-    // Check if task exists
-    const taskResult = await client.query(
-      "SELECT * FROM tasks WHERE id = $1",
-      [id]
-    );
-
-    if (taskResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({
-        success: false,
-        error: "Task not found",
-      });
-    }
-
-    const currentTask = taskResult.rows[0];
-
-    // Check if another task already has this priority
-    const existingTaskResult = await client.query(
-      "SELECT * FROM tasks WHERE priority = $1 AND id != $2",
-      [priorityNum, id]
-    );
-
-    if (existingTaskResult.rows.length > 0) {
-      // Another task has this priority - swap their priorities
-      const otherTask = existingTaskResult.rows[0];
-      const currentTaskPriority = currentTask.priority;
-
-      // Update the other task with the current task's priority
-      await client.query(
-        "UPDATE tasks SET priority = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        [currentTaskPriority, otherTask.id]
-      );
-    }
-
-    // Update current task with new priority
-    await client.query(
-      "UPDATE tasks SET priority = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-      [priorityNum, id]
-    );
-
-    await client.query("COMMIT");
-
-    // Fetch all tasks to return updated state
-    const allTasksResult = await pool.query(
-      "SELECT * FROM tasks ORDER BY priority ASC, display_order ASC"
-    );
-
-    res.json({
-      success: true,
-      data: allTasksResult.rows,
-      message: "Priority assigned successfully",
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Error assigning priority:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to assign priority",
-      message: error.message,
-    });
-  } finally {
-    client.release();
   }
 });
 

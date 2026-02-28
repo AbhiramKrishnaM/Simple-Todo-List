@@ -152,24 +152,6 @@ class TaskService {
     }
   }
 
-  /**
-   * Assign priority to a task (handles uniqueness and swapping)
-   */
-  async assignPriority(id: string, priority: number): Promise<Task[]> {
-    try {
-      const response = await apiClient.patch<TasksResponse>(
-        `${this.endpoint}/${id}/assign-priority`,
-        { priority }
-      );
-      if (!response.data.data) {
-        throw new Error("Failed to assign priority");
-      }
-      return response.data.data;
-    } catch (error) {
-      console.error(`Failed to assign priority to task ${id}:`, error);
-      throw new Error("Failed to assign priority on server");
-    }
-  }
 }
 
 // Export a singleton instance

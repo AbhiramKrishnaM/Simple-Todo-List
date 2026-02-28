@@ -8,22 +8,12 @@ import type { Task } from "@/types";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { useTasksStore } from "@/store/tasks";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 type TaskCardProps = {
   task: Task;
   checked?: boolean;
   onToggle?: (taskId: string) => void;
   onRemove?: (taskId: string) => void;
   className?: string;
-  maxTasks?: number;
 };
 
 export default function TaskCard({
@@ -32,11 +22,8 @@ export default function TaskCard({
   onToggle,
   onRemove,
   className,
-  maxTasks = 7,
 }: TaskCardProps) {
   const [isChecked, setIsChecked] = React.useState<boolean>(Boolean(checked));
-
-  const assignPriority = useTasksStore((state) => state.assignPriority);
 
   const {
     attributes,
@@ -64,23 +51,6 @@ export default function TaskCard({
   function handleRemove() {
     onRemove?.(task.id);
   }
-
-  async function handlePriorityChange(newPriority: string) {
-    const priority = parseInt(newPriority, 10);
-    if (isNaN(priority) || priority < 1 || priority > maxTasks) {
-      return;
-    }
-
-    try {
-      await assignPriority(task.id, priority);
-    } catch (error) {
-      console.error("Failed to assign priority:", error);
-    }
-  }
-
-  const priorityOptions = React.useMemo(() => {
-    return Array.from({ length: maxTasks }, (_, i) => i + 1);
-  }, [maxTasks]);
 
   return (
     <motion.div
@@ -128,28 +98,6 @@ export default function TaskCard({
           aria-label={isChecked ? "Mark task as not done" : "Mark task as done"}
           className="size-5 rounded-md"
         />
-
-        {!checked && (
-          <Select
-            value={task.priority.toString()}
-            onValueChange={handlePriorityChange}
-          >
-            <SelectTrigger className="w-16 h-8 text-xs font-semibold">
-              <SelectValue placeholder="#" />
-            </SelectTrigger>
-            <SelectContent>
-              {priorityOptions.map((priority) => (
-                <SelectItem
-                  key={priority}
-                  value={priority.toString()}
-                  className="text-xs"
-                >
-                  {priority}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
 
         <motion.span
           className={cn(
