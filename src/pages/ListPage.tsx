@@ -1,7 +1,6 @@
 import * as React from "react";
 import AddTask from "../components/AddTask";
 import TaskCard from "../components/TaskCard";
-import Quote from "../components/Quote";
 import type { Task } from "../types";
 import { useTasksStore } from "../store/tasks";
 import { useSettingsStore } from "../store/settings";
@@ -79,14 +78,14 @@ function ListPage() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   async function handleAdd(task: Task) {
     // Check if we've reached the task limit
     if (uncompletedTasks.length >= taskLimit) {
       setLimitError(
-        `You've reached your task limit of ${taskLimit}. Complete or delete some tasks, or increase your limit in Settings.`
+        `You've reached your task limit of ${taskLimit}. Complete or delete some tasks, or increase your limit in Settings.`,
       );
       // Clear error after 5 seconds
       setTimeout(() => {
@@ -137,7 +136,7 @@ function ListPage() {
     }
 
     const oldIndex = uncompletedTasks.findIndex(
-      (task) => task.id === active.id
+      (task) => task.id === active.id,
     );
     const newIndex = uncompletedTasks.findIndex((task) => task.id === over.id);
 
@@ -267,12 +266,10 @@ function ListPage() {
         </motion.div>
       )}
 
-      {/* Remaining todos counter and motivational quote */}
       <div className="w-full max-w-xl flex-shrink-0">
         <div className="text-lg font-semibold text-foreground mb-2">
           Your remaining todos: {remainingTasks} / {taskLimit}
         </div>
-        <Quote />
       </div>
     </motion.div>
   );
