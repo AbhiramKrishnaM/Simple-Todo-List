@@ -53,12 +53,17 @@ function App() {
         </div>
 
         {/* Main content area with routes */}
-        <Routes>
-          <Route path="/" element={<Navigate to="/list" replace />} />
-          <Route path="/list" element={<ListPage />} />
-          <Route path="/dashboard" element={<Navigate to="/list" replace />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <Routes>
+            <Route path="/" element={<Navigate to="/list" replace />} />
+            <Route path="/list" element={<ListPage />} />
+            <Route
+              path="/dashboard"
+              element={<Navigate to="/list" replace />}
+            />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </div>
       </div>
     </BrowserRouter>
   );

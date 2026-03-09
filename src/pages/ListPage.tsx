@@ -300,7 +300,7 @@ function ListPage() {
   return (
     <div
       className={[
-        "flex flex-1 flex-col items-center gap-4 px-6 py-6 overflow-hidden",
+        "flex h-full w-full flex-1 flex-col items-center gap-4 px-6 py-6",
         hasTasks ? "justify-start" : "justify-center",
       ].join(" ")}
     >
@@ -330,7 +330,7 @@ function ListPage() {
         )}
       </div>
 
-      <div className="w-full flex-1 px-2 pt-1 min-h-0">
+      <div className="w-full flex-1 px-2 pt-1 min-h-0 overflow-y-auto">
         <DndContext
           sensors={sensors}
           collisionDetection={rectIntersection}
@@ -355,7 +355,7 @@ function ListPage() {
                   id={`droppable-${priority}`}
                   isEmpty={rowTasks.length === 0}
                 >
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 ">
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                       {rowLabel}
                     </h3>
@@ -365,7 +365,7 @@ function ListPage() {
                         setAddModalPriority(priority);
                         setAddModalOpen(true);
                       }}
-                      className="w-fit min-w-[120px] min-h-[72px] flex items-center justify-center rounded-lg border-2 border-dashed border-input px-6 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted/30 transition-colors"
+                      className="w-fit min-w-[100px] min-h-[62px] flex items-center justify-center rounded-lg border-2 border-dashed border-input px-6 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted/30 transition-colors"
                       aria-label={`Add ${rowLabel} task`}
                     >
                       <Plus className="size-8" />
