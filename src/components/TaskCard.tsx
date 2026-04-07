@@ -139,13 +139,14 @@ export default function TaskCard({
           />
         </div>
 
-        <div className="flex-1 cursor-pointer min-w-0" onClick={handleCardClick}>
+        <div className="flex-1 cursor-pointer min-w-0 overflow-hidden" onClick={handleCardClick}>
           <span
             className={cn(
-              "text-sm font-medium text-gray-700 dark:text-gray-300 break-words transition-colors",
+              "block text-sm font-medium text-gray-700 dark:text-gray-300 truncate transition-colors",
               isChecked && "line-through text-gray-400",
               !isChecked && "hover:text-blue-600 dark:hover:text-blue-400",
             )}
+            title={task.title}
           >
             {task.title}
           </span>
