@@ -1,5 +1,6 @@
 import * as React from "react";
 import MDEditor from "@uiw/react-md-editor";
+import { Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,18 @@ export default function TaskNotesModal({
     }
   };
 
+  const handleDownload = () => {
+    if (!task) return;
+    const content = `# ${task.title}\n\n${notes}`;
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${task.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!task) return null;
 
   return (
@@ -61,17 +74,29 @@ export default function TaskNotesModal({
             }}
           />
         </div>
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t">
           <Button
             type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
+            variant="ghost"
+            onClick={handleDownload}
+            disabled={!notes.trim()}
+            className="gap-2 text-muted-foreground hover:text-foreground"
           >
-            Cancel
+            <Download className="size-4" />
+            Download .md
           </Button>
-          <Button type="button" onClick={handleSave}>
-            Save Notes
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave}>
+              Save Notes
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
