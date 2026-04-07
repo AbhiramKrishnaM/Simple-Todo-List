@@ -19,6 +19,7 @@ const ROW_LABELS: Record<keyof RowColors, string> = {
   urgent: "Urgent row",
   medium: "Medium row",
   low: "Low row",
+  queue: "Queue row",
 };
 
 function SettingsPage() {
@@ -51,6 +52,7 @@ function SettingsPage() {
           urgent: settings.rowColors.urgent ?? DEFAULT_ROW_COLORS.urgent,
           medium: settings.rowColors.medium ?? DEFAULT_ROW_COLORS.medium,
           low: settings.rowColors.low ?? DEFAULT_ROW_COLORS.low,
+          queue: settings.rowColors.queue ?? DEFAULT_ROW_COLORS.queue,
         });
       }
     }

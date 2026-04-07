@@ -3,7 +3,7 @@ import { X, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import type { Task } from "@/types";
+import type { Task, Priority } from "@/types";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -19,21 +19,23 @@ type TaskCardProps = {
   priorityIndicatorClass?: string;
 };
 
-const PRIORITY_LABELS: Record<
-  "very_urgent" | "urgent" | "medium" | "low",
-  string
-> = {
+const PRIORITY_LABELS: Record<Priority, string> = {
   very_urgent: "Very urgent",
   urgent: "Urgent",
   medium: "Medium",
   low: "Low",
+  queue: "Queue",
 };
 
-function getTaskPriority(
-  task: Task,
-): "very_urgent" | "urgent" | "medium" | "low" {
+function getTaskPriority(task: Task): Priority {
   const p = task.meta?.priority;
-  if (p === "very_urgent" || p === "urgent" || p === "medium" || p === "low")
+  if (
+    p === "very_urgent" ||
+    p === "urgent" ||
+    p === "medium" ||
+    p === "low" ||
+    p === "queue"
+  )
     return p;
   return "medium";
 }
@@ -89,9 +91,9 @@ export default function TaskCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex flex-col rounded-2xl px-4 py-3 min-h-[72px] w-auto",
-        !isCompletedState && "bg-background border border-input shadow-md",
-        isCompletedState && "bg-gray-100 border-0 shadow-none opacity-90",
+        "flex flex-col rounded-xl px-3 py-2.5 w-full",
+        !isCompletedState && "bg-background border border-input shadow-sm",
+        isCompletedState && "bg-gray-100 dark:bg-gray-800/50 border-0 shadow-none opacity-70",
         cardClassName,
         isDragging && "opacity-0",
         className,
@@ -99,21 +101,21 @@ export default function TaskCard({
       role="group"
       aria-disabled={isCompletedState}
     >
-      <div className="flex w-full items-center gap-2">
+      <div className="flex w-full items-start gap-2">
         {!checked && (
           <div
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing shrink-0 text-gray-400 hover:text-gray-600"
+            className="cursor-grab active:cursor-grabbing shrink-0 text-gray-400 hover:text-gray-600 mt-0.5"
             onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical className="size-5" />
+            <GripVertical className="size-4" />
           </div>
         )}
         {priorityIndicatorClass && (
           <div
             className={cn(
-              "size-5 shrink-0 rounded border border-gray-300",
+              "size-4 shrink-0 rounded border border-gray-300 mt-0.5",
               priorityIndicatorClass,
             )}
             title={`Priority: ${PRIORITY_LABELS[priority]}`}
@@ -125,6 +127,7 @@ export default function TaskCard({
           onClick={(e) => {
             e.stopPropagation();
           }}
+          className="mt-0.5"
         >
           <Checkbox
             checked={isChecked}
@@ -132,16 +135,16 @@ export default function TaskCard({
             aria-label={
               isChecked ? "Mark task as not done" : "Mark task as done"
             }
-            className="size-5 shrink-0 rounded-md"
+            className="size-4 shrink-0 rounded-md"
           />
         </div>
 
-        <div className="flex-1 cursor-pointer" onClick={handleCardClick}>
+        <div className="flex-1 cursor-pointer min-w-0" onClick={handleCardClick}>
           <span
             className={cn(
-              "text-[15px] font-medium text-gray-700 break-words whitespace-nowrap transition-colors",
+              "text-sm font-medium text-gray-700 dark:text-gray-300 break-words transition-colors",
               isChecked && "line-through text-gray-400",
-              !isChecked && "hover:text-blue-600",
+              !isChecked && "hover:text-blue-600 dark:hover:text-blue-400",
             )}
           >
             {task.title}
@@ -158,11 +161,11 @@ export default function TaskCard({
             handleRemove();
           }}
           className={cn(
-            "shrink-0 text-gray-500 hover:text-gray-900",
+            "shrink-0 text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 -mt-0.5",
             isCompletedState && "opacity-70",
           )}
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </Button>
       </div>
     </div>

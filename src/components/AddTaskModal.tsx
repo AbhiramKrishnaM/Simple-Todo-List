@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Task } from "@/types";
 
-type Priority = "very_urgent" | "urgent" | "medium" | "low";
+type Priority = "very_urgent" | "urgent" | "medium" | "low" | "queue";
 
 type AddTaskModalProps = {
   open: boolean;

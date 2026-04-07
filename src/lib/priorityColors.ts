@@ -5,6 +5,7 @@ export const PRIORITY_ORDER: Priority[] = [
   "urgent",
   "medium",
   "low",
+  "queue",
 ];
 
 const INDICATOR_CLASSES: Record<RowColorTheme, string> = {
@@ -12,6 +13,7 @@ const INDICATOR_CLASSES: Record<RowColorTheme, string> = {
   yellow: "bg-yellow-400",
   blue: "bg-blue-400",
   green: "bg-green-400",
+  purple: "bg-purple-400",
 };
 
 const DEFAULT_ROW_COLORS: RowColors = {
@@ -19,6 +21,7 @@ const DEFAULT_ROW_COLORS: RowColors = {
   urgent: "yellow",
   medium: "blue",
   low: "green",
+  queue: "purple",
 };
 
 export function getPriorityIndicatorClass(
@@ -34,6 +37,7 @@ export const ROW_COLOR_OPTIONS: { value: RowColorTheme; label: string }[] = [
   { value: "yellow", label: "Yellow" },
   { value: "blue", label: "Blue" },
   { value: "green", label: "Green" },
+  { value: "purple", label: "Purple" },
 ];
 
 export { DEFAULT_ROW_COLORS };

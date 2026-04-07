@@ -1,10 +1,9 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
-import AddTask from "../components/AddTask";
 import AddTaskModal from "../components/AddTaskModal";
 import TaskCard from "../components/TaskCard";
 import TaskNotesModal from "../components/TaskNotesModal";
-import type { Task } from "../types";
+import type { Task, Priority, RowColors } from "../types";
 import { useTasksStore } from "../store/tasks";
 import { useSettingsStore } from "../store/settings";
 import {
@@ -22,55 +21,147 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  rectSortingStrategy,
+  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  PRIORITY_ORDER,
-  getPriorityIndicatorClass,
-} from "../lib/priorityColors";
+import { getPriorityIndicatorClass } from "../lib/priorityColors";
+import { cn } from "../lib/utils";
 
-const MAX_TASKS_PER_PRIORITY = 5;
+// Column order: left → right
+const KANBAN_COLUMNS: Priority[] = [
+  "low",
+  "medium",
+  "urgent",
+  "very_urgent",
+  "queue",
+];
 
-function DroppableZone({
-  id,
-  children,
-  isEmpty,
-}: {
-  id: string;
-  children: React.ReactNode;
-  isEmpty?: boolean;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+const COLUMN_LABELS: Record<Priority, string> = {
+  low: "Low",
+  medium: "Medium",
+  urgent: "Urgent",
+  very_urgent: "Very Urgent",
+  queue: "Queue",
+};
 
-  return (
-    <div
-      ref={setNodeRef}
-      className={`rounded-lg transition-all ${
-        isEmpty ? "min-h-[200px]" : "min-h-[120px]"
-      } ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function getPriority(task: Task): "very_urgent" | "urgent" | "medium" | "low" {
+function getPriority(task: Task): Priority {
   const p = task.meta?.priority;
-  if (p === "very_urgent" || p === "urgent" || p === "medium" || p === "low")
+  if (
+    p === "very_urgent" ||
+    p === "urgent" ||
+    p === "medium" ||
+    p === "low" ||
+    p === "queue"
+  )
     return p;
   return "medium";
 }
 
-function getNextPriorityToFill(
-  tasksByPriority: Record<"very_urgent" | "urgent" | "medium" | "low", Task[]>,
-): "very_urgent" | "urgent" | "medium" | "low" {
-  for (const p of PRIORITY_ORDER) {
-    const uncompletedInRow = tasksByPriority[p].filter((t) => !t.completed);
-    if (uncompletedInRow.length < MAX_TASKS_PER_PRIORITY) return p;
-  }
-  return "low";
+// --- KanbanColumn component ---
+type KanbanColumnProps = {
+  priority: Priority;
+  tasks: Task[];
+  rowColors: RowColors | null;
+  onAddClick: () => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+  onCardClick: (task: Task) => void;
+};
+
+function KanbanColumn({
+  priority,
+  tasks,
+  rowColors,
+  onAddClick,
+  onToggle,
+  onRemove,
+  onCardClick,
+}: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: `droppable-${priority}` });
+
+  const uncompletedCount = tasks.filter((t) => !t.completed).length;
+  const isVeryUrgent = priority === "very_urgent";
+  const isQueue = priority === "queue";
+  const isFull = isVeryUrgent && uncompletedCount >= 1;
+  const colorDot = getPriorityIndicatorClass(priority, rowColors);
+
+  return (
+    <div className="flex flex-col flex-1 min-w-[180px] h-full rounded-xl border border-border/60 bg-muted/20">
+      {/* Column header */}
+      <div className="flex items-center justify-between px-3 pt-3 pb-2 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={cn("size-2.5 rounded-full flex-shrink-0", colorDot)} />
+          <span className="text-xs font-bold uppercase tracking-widest text-foreground">
+            {COLUMN_LABELS[priority]}
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {isVeryUrgent ? `${uncompletedCount}/1` : uncompletedCount}
+          </span>
+          {isFull && (
+            <span className="text-[10px] font-semibold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 px-1.5 py-0.5 rounded-md">
+              FULL
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onAddClick}
+          className="text-muted-foreground hover:text-foreground transition-colors rounded-md p-1 hover:bg-muted"
+          aria-label={`Add task to ${COLUMN_LABELS[priority]}`}
+        >
+          <Plus className="size-4" />
+        </button>
+      </div>
+
+      {/* Queue subtitle */}
+      {isQueue && (
+        <p className="text-[10px] text-muted-foreground px-3 pb-1.5 -mt-1 leading-tight">
+          Overflow from Very Urgent
+        </p>
+      )}
+
+      {/* Divider */}
+      <div className="mx-3 border-t border-border/40 mb-2 flex-shrink-0" />
+
+      {/* Droppable task list */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 min-h-0 overflow-y-auto px-2 pb-2 rounded-b-xl transition-colors",
+          isOver && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+        )}
+      >
+        <SortableContext
+          items={tasks.map((t) => t.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="flex flex-col gap-2 pt-1">
+            {tasks.map((t) => (
+              <TaskCard
+                key={t.id}
+                task={t}
+                checked={t.completed}
+                onToggle={onToggle}
+                onRemove={onRemove}
+                onCardClick={onCardClick}
+                priorityIndicatorClass={getPriorityIndicatorClass(
+                  priority,
+                  rowColors,
+                )}
+              />
+            ))}
+            {tasks.length === 0 && (
+              <div className="flex items-center justify-center py-10 text-xs text-muted-foreground/60">
+                No tasks
+              </div>
+            )}
+          </div>
+        </SortableContext>
+      </div>
+    </div>
+  );
 }
 
+// --- Main ListPage ---
 function ListPage() {
   const tasks = useTasksStore((s) => s.tasks);
   const fetchTasks = useTasksStore((s) => s.fetchTasks);
@@ -84,11 +175,13 @@ function ListPage() {
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
 
   const [activeId, setActiveId] = React.useState<string | null>(null);
-  const [limitError, setLimitError] = React.useState<string | null>(null);
+  const [notification, setNotification] = React.useState<{
+    type: "error" | "info";
+    message: string;
+  } | null>(null);
   const [addModalOpen, setAddModalOpen] = React.useState(false);
-  const [addModalPriority, setAddModalPriority] = React.useState<
-    "very_urgent" | "urgent" | "medium" | "low"
-  >("medium");
+  const [addModalPriority, setAddModalPriority] =
+    React.useState<Priority>("medium");
   const [notesModalOpen, setNotesModalOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
@@ -97,15 +190,13 @@ function ListPage() {
     fetchSettings();
   }, [fetchTasks, fetchSettings]);
 
-  const { tasksByPriority } = React.useMemo(() => {
-    const byPriority: Record<
-      "very_urgent" | "urgent" | "medium" | "low",
-      Task[]
-    > = {
+  const tasksByPriority = React.useMemo(() => {
+    const byPriority: Record<Priority, Task[]> = {
       very_urgent: [],
       urgent: [],
       medium: [],
       low: [],
+      queue: [],
     };
 
     tasks.forEach((t) => {
@@ -119,27 +210,28 @@ function ListPage() {
       return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
     };
 
-    PRIORITY_ORDER.forEach((p) => {
+    KANBAN_COLUMNS.forEach((p) => {
       byPriority[p].sort(sortByPosition);
     });
 
-    return {
-      tasksByPriority: byPriority,
-    };
+    return byPriority;
   }, [tasks]);
 
   const uncompletedTasks = React.useMemo(
     () =>
-      PRIORITY_ORDER.flatMap((p) =>
+      KANBAN_COLUMNS.flatMap((p) =>
         tasksByPriority[p].filter((t) => !t.completed),
       ),
     [tasksByPriority],
   );
 
-  const hasTasks = tasks.length > 0;
-  const remainingTasks = uncompletedTasks.length;
   const taskLimit = settings?.numberOfTasks ?? 7;
   const rowColors = settings?.rowColors ?? null;
+
+  function showNotification(type: "error" | "info", message: string) {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4000);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -161,36 +253,33 @@ function ListPage() {
     if (!draggedTask) return;
 
     const draggedPriority = getPriority(draggedTask);
-
-    // Check if dropped on a droppable zone (priority section)
     const overId = over.id as string;
+
+    let targetPriority: Priority;
+
     if (overId.startsWith("droppable-")) {
-      const targetPriority = overId.replace("droppable-", "") as
-        | "very_urgent"
-        | "urgent"
-        | "medium"
-        | "low";
-      if (draggedPriority !== targetPriority) {
-        try {
-          await updateTask(draggedTask.id, {
-            meta: { ...draggedTask.meta, priority: targetPriority },
-          });
-          await fetchTasks();
-        } catch (err) {
-          console.error("Failed to change priority:", err);
-        }
-      }
-      return;
+      targetPriority = overId.replace("droppable-", "") as Priority;
+    } else {
+      const targetTask = tasks.find((t) => t.id === over.id);
+      if (!targetTask) return;
+      targetPriority = getPriority(targetTask);
     }
 
-    // Check if dropped on another task
-    const targetTask = tasks.find((t) => t.id === over.id);
-    if (!targetTask) return;
-
-    const targetPriority = getPriority(targetTask);
+    // Very Urgent overflow: only 1 uncompleted task allowed
+    if (targetPriority === "very_urgent") {
+      const veryUrgentUncompleted = tasksByPriority.very_urgent.filter(
+        (t) => !t.completed && t.id !== draggedTask.id,
+      );
+      if (veryUrgentUncompleted.length >= 1) {
+        targetPriority = "queue";
+        showNotification(
+          "info",
+          "Very Urgent is full — task moved to Queue instead.",
+        );
+      }
+    }
 
     if (draggedPriority !== targetPriority) {
-      // Cross-priority drag: change the task's priority to match the target
       try {
         await updateTask(draggedTask.id, {
           meta: { ...draggedTask.meta, priority: targetPriority },
@@ -202,26 +291,28 @@ function ListPage() {
       return;
     }
 
-    const rowTasks = tasksByPriority[draggedPriority].filter(
-      (t) => !t.completed,
-    );
-    const oldIndex = rowTasks.findIndex((t) => t.id === active.id);
-    const newIndex = rowTasks.findIndex((t) => t.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+    // Same column reorder
+    if (!overId.startsWith("droppable-")) {
+      const colTasks = tasksByPriority[draggedPriority].filter(
+        (t) => !t.completed,
+      );
+      const oldIndex = colTasks.findIndex((t) => t.id === active.id);
+      const newIndex = colTasks.findIndex((t) => t.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(rowTasks, oldIndex, newIndex);
+      const reordered = arrayMove(colTasks, oldIndex, newIndex);
+      const updates = reordered.map((task, index) =>
+        updateTask(task.id, {
+          meta: { ...task.meta, priority: draggedPriority, position: index + 1 },
+        }),
+      );
 
-    const updatesPromises = reordered.map((task, index) =>
-      updateTask(task.id, {
-        meta: { ...task.meta, priority: draggedPriority, position: index + 1 },
-      }),
-    );
-
-    try {
-      await Promise.all(updatesPromises);
-      await fetchTasks();
-    } catch (err) {
-      console.error("Failed to reorder tasks:", err);
+      try {
+        await Promise.all(updates);
+        await fetchTasks();
+      } catch (err) {
+        console.error("Failed to reorder tasks:", err);
+      }
     }
   }
 
@@ -241,9 +332,7 @@ function ListPage() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
     try {
-      await updateTask(taskId, {
-        meta: { ...task.meta, notes },
-      });
+      await updateTask(taskId, { meta: { ...task.meta, notes } });
     } catch (err) {
       console.error("Failed to update notes:", err);
     }
@@ -251,86 +340,93 @@ function ListPage() {
 
   async function handleAdd(task: Task) {
     if (uncompletedTasks.length >= taskLimit) {
-      setLimitError(
+      showNotification(
+        "error",
         `You've reached your task limit of ${taskLimit}. Complete or delete some tasks, or increase your limit in Settings.`,
       );
-      setTimeout(() => {
-        setLimitError(null);
-      }, 5000);
       return;
     }
 
-    setLimitError(null);
-    const priority =
-      task.meta?.priority ?? getNextPriorityToFill(tasksByPriority);
-    const uncompletedInRow = tasksByPriority[priority].filter(
+    let priority: Priority = task.meta?.priority ?? "medium";
+
+    // Very Urgent overflow
+    if (priority === "very_urgent") {
+      const veryUrgentUncompleted = tasksByPriority.very_urgent.filter(
+        (t) => !t.completed,
+      );
+      if (veryUrgentUncompleted.length >= 1) {
+        priority = "queue";
+        showNotification(
+          "info",
+          "Very Urgent is full — task added to Queue instead.",
+        );
+      }
+    }
+
+    const uncompletedInCol = tasksByPriority[priority].filter(
       (t) => !t.completed,
     );
-    const position = Math.min(
-      uncompletedInRow.length + 1,
-      MAX_TASKS_PER_PRIORITY,
-    );
+    const position = uncompletedInCol.length + 1;
+
     try {
       await createTask({
         title: task.title,
         completed: task.completed,
         meta: { ...task.meta, priority, position },
       });
-    } catch (error) {
-      console.error("Failed to add task:", error);
+    } catch (err) {
+      console.error("Failed to add task:", err);
     }
+  }
+
+  function handleAddForColumn(priority: Priority) {
+    setAddModalPriority(priority);
+    setAddModalOpen(true);
   }
 
   async function handleToggle(id: string) {
     try {
       await toggleTask(id);
-    } catch (error) {
-      console.error("Failed to toggle task:", error);
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
     }
   }
 
   async function handleRemove(id: string) {
     try {
       await removeTask(id);
-    } catch (error) {
-      console.error("Failed to remove task:", error);
+    } catch (err) {
+      console.error("Failed to remove task:", err);
     }
   }
 
   return (
-    <div
-      className={[
-        "flex h-full w-full flex-1 flex-col items-center gap-4 px-6 py-6",
-        hasTasks ? "justify-start" : "justify-center",
-      ].join(" ")}
-    >
-      <div className="w-full max-w-4xl flex-shrink-0 flex flex-col items-center text-center">
-        <div className="mb-2 text-2xl font-bold text-foreground">
-          Your To Do
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Notifications */}
+      {(notification || error) && (
+        <div className="flex-shrink-0 flex flex-col items-center gap-2 px-6 pt-3 pb-1">
+          {notification && (
+            <div
+              className={cn(
+                "rounded-md px-3 py-2 text-sm w-full max-w-lg text-center",
+                notification.type === "error"
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400",
+              )}
+            >
+              {notification.message}
+            </div>
+          )}
+          {error && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive w-full max-w-lg text-center">
+              {error}
+            </div>
+          )}
         </div>
-        <div className="w-full max-w-md flex justify-center">
-          <AddTask onAdd={handleAdd} placeholder="Add new task" />
-        </div>
-        <AddTaskModal
-          open={addModalOpen}
-          onOpenChange={setAddModalOpen}
-          onAdd={handleAdd}
-          defaultPriority={addModalPriority}
-          title="Add task"
-        />
-        {error && (
-          <div className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive w-full max-w-md">
-            {error}
-          </div>
-        )}
-        {limitError && (
-          <div className="mt-2 rounded-md bg-orange-500/10 border border-orange-500/20 px-3 py-2 text-sm text-orange-600 dark:text-orange-400 w-full max-w-md">
-            {limitError}
-          </div>
-        )}
-      </div>
+      )}
 
-      <div className="w-full flex-1 px-2 pt-1 min-h-0 overflow-y-auto">
+      {/* Kanban board */}
+      <div className="flex flex-1 min-h-0 overflow-x-auto px-6 pb-4 pt-4">
         <DndContext
           sensors={sensors}
           collisionDetection={rectIntersection}
@@ -338,66 +434,19 @@ function ListPage() {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="grid grid-cols-1 gap-6">
-            {PRIORITY_ORDER.map((priority) => {
-              const rowTasks = tasksByPriority[priority];
-              const rowLabel =
-                priority === "very_urgent"
-                  ? "Very urgent"
-                  : priority === "urgent"
-                    ? "Urgent"
-                    : priority === "medium"
-                      ? "Medium"
-                      : "Low";
-              return (
-                <DroppableZone
-                  key={priority}
-                  id={`droppable-${priority}`}
-                  isEmpty={rowTasks.length === 0}
-                >
-                  <div className="flex flex-col gap-2 ">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      {rowLabel}
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddModalPriority(priority);
-                        setAddModalOpen(true);
-                      }}
-                      className="w-fit min-w-[100px] min-h-[62px] flex items-center justify-center rounded-lg border-2 border-dashed border-input px-6 text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted/30 transition-colors"
-                      aria-label={`Add ${rowLabel} task`}
-                    >
-                      <Plus className="size-8" />
-                    </button>
-                    {rowTasks.length > 0 && (
-                      <SortableContext
-                        items={rowTasks.map((t) => t.id)}
-                        strategy={rectSortingStrategy}
-                      >
-                        <div className="flex flex-wrap gap-3">
-                          {rowTasks.map((t) => (
-                            <TaskCard
-                              key={t.id}
-                              task={t}
-                              checked={t.completed}
-                              onToggle={(id) => handleToggle(id)}
-                              onRemove={(id) => handleRemove(id)}
-                              onCardClick={handleCardClick}
-                              cardClassName={undefined}
-                              priorityIndicatorClass={getPriorityIndicatorClass(
-                                priority,
-                                rowColors,
-                              )}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    )}
-                  </div>
-                </DroppableZone>
-              );
-            })}
+          <div className="flex gap-4 h-full w-full">
+            {KANBAN_COLUMNS.map((priority) => (
+              <KanbanColumn
+                key={priority}
+                priority={priority}
+                tasks={tasksByPriority[priority]}
+                rowColors={rowColors}
+                onAddClick={() => handleAddForColumn(priority)}
+                onToggle={handleToggle}
+                onRemove={handleRemove}
+                onCardClick={handleCardClick}
+              />
+            ))}
           </div>
 
           <DragOverlay
@@ -407,7 +456,7 @@ function ListPage() {
             }}
           >
             {activeTask ? (
-              <div className="rotate-2 scale-105 cursor-grabbing shadow-2xl">
+              <div className="rotate-1 scale-105 cursor-grabbing w-64">
                 <TaskCard
                   task={activeTask}
                   checked={activeTask.completed}
@@ -425,13 +474,22 @@ function ListPage() {
         </DndContext>
       </div>
 
+      {/* Footer */}
       {settings?.showRemainingTodoCount !== false && (
-        <div className="w-full max-w-4xl flex-shrink-0">
-          <div className="text-lg font-semibold text-foreground mb-2">
-            Your remaining todos: {remainingTasks} / {taskLimit}
-          </div>
+        <div className="flex-shrink-0 px-6 py-2 border-t border-border/40">
+          <span className="text-sm font-semibold text-foreground">
+            Remaining: {uncompletedTasks.length} / {taskLimit}
+          </span>
         </div>
       )}
+
+      <AddTaskModal
+        open={addModalOpen}
+        onOpenChange={setAddModalOpen}
+        onAdd={handleAdd}
+        defaultPriority={addModalPriority}
+        title={`Add task to ${COLUMN_LABELS[addModalPriority]}`}
+      />
 
       <TaskNotesModal
         task={selectedTask}
