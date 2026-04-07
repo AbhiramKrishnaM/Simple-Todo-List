@@ -44,7 +44,7 @@ export default function TaskNotesModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-xl">{task.title}</DialogTitle>
+          <DialogTitle className="text-xl break-words whitespace-normal pr-6">{task.title}</DialogTitle>
           <DialogDescription>
             Add notes, steps, or additional details for this task. Supports Markdown formatting.
           </DialogDescription>
