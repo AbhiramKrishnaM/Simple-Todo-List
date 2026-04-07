@@ -475,13 +475,25 @@ function ListPage() {
       </div>
 
       {/* Footer */}
-      {settings?.showRemainingTodoCount !== false && (
-        <div className="flex-shrink-0 px-6 py-2 border-t border-border/40">
-          <span className="text-sm font-semibold text-foreground">
-            Remaining: {uncompletedTasks.length} / {taskLimit}
-          </span>
-        </div>
-      )}
+      {tasks.length > 0 && (() => {
+        const total = tasks.length;
+        const completed = tasks.filter((t) => t.completed).length;
+        const pct = Math.round((completed / total) * 100);
+        return (
+          <div className="flex-shrink-0 px-6 py-3 border-t border-border/40 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{completed} of {total} completed</span>
+              <span className="font-semibold text-foreground">{pct}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       <AddTaskModal
         open={addModalOpen}
