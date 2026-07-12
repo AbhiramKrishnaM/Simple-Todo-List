@@ -85,6 +85,22 @@ export const initDatabase = async () => {
       )
     `);
 
+    // Create calendar_sync_state table (single row tracking the active watch
+    // channel + sync cursor, so syncing can resume correctly after a restart)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS calendar_sync_state (
+        id SERIAL PRIMARY KEY,
+        calendar_id VARCHAR(255) NOT NULL DEFAULT 'primary',
+        channel_id VARCHAR(255),
+        resource_id VARCHAR(255),
+        channel_token VARCHAR(255),
+        expiration BIGINT,
+        sync_token TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log("Database tables initialized successfully");
   } catch (error) {
     console.error("Error initializing database:", error);
