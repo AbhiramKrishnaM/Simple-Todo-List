@@ -6,6 +6,7 @@ import { getAuthorizedClient } from "./googleAuth.js";
 const CALENDAR_ID = "primary";
 // Google's documented max TTL for Calendar watch channels.
 const WATCH_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const DONE_PREFIX = "✅ ";
 
 export const getCalendarClient = async () => {
   const auth = await getAuthorizedClient();
@@ -103,6 +104,32 @@ export const registerWatchChannel = async () => {
 export const isChannelExpiringSoon = (state, withinMs = 24 * 60 * 60 * 1000) => {
   if (!state?.expiration) return true;
   return Number(state.expiration) - Date.now() < withinMs;
+};
+
+// Prefixes/un-prefixes the Calendar event title with a done marker to
+// reflect the linked task's completion state. No-ops if the title already
+// matches, so completing an already-marked event doesn't cause a redundant
+// API call (and a redundant webhook round-trip).
+export const setEventCompletionMarker = async (eventId, completed) => {
+  const calendarClient = await getCalendarClient();
+  const { data: event } = await calendarClient.events.get({
+    calendarId: CALENDAR_ID,
+    eventId,
+  });
+
+  const currentSummary = event.summary || "";
+  const bareSummary = currentSummary.startsWith(DONE_PREFIX)
+    ? currentSummary.slice(DONE_PREFIX.length)
+    : currentSummary;
+  const newSummary = completed ? `${DONE_PREFIX}${bareSummary}` : bareSummary;
+
+  if (newSummary === currentSummary) return;
+
+  await calendarClient.events.patch({
+    calendarId: CALENDAR_ID,
+    eventId,
+    requestBody: { summary: newSummary },
+  });
 };
 
 export const verifyWebhookRequest = async (headers) => {

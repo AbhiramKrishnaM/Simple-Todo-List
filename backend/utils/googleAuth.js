@@ -1,7 +1,9 @@
 import { google } from "googleapis";
 import pool from "../db.js";
 
-const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
+// calendar.events covers both reading and writing events (title updates for
+// the completion marker), so it replaces the earlier readonly-only scope.
+const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
 
 const createOAuth2Client = () =>
   new google.auth.OAuth2(

@@ -1,8 +1,21 @@
 import express from "express";
 import pool from "../db.js";
 import { generateId } from "../utils/helpers.js";
+import { setEventCompletionMarker } from "../utils/googleCalendar.js";
 
 const router = express.Router();
+
+// Reflects a task's completion state back onto its linked Calendar event
+// (✅ prefix on the title). Best-effort - a Calendar API hiccup shouldn't
+// fail the user's local completion action.
+const syncCompletionToCalendar = async (googleEventId, completed) => {
+  if (!googleEventId) return;
+  try {
+    await setEventCompletionMarker(googleEventId, completed);
+  } catch (error) {
+    console.error("Error updating Calendar event completion marker:", error);
+  }
+};
 
 // GET all tasks – returns data as object keyed by index with simplified fields
 router.get("/", async (req, res) => {
@@ -191,6 +204,10 @@ router.put("/:id", async (req, res) => {
 
     const result = await pool.query(query, values);
 
+    if (completed !== undefined) {
+      await syncCompletionToCalendar(result.rows[0].google_event_id, completed);
+    }
+
     res.json({
       success: true,
       data: result.rows[0],
@@ -213,7 +230,7 @@ router.patch("/:id/toggle", async (req, res) => {
 
     // First get the current task to check its completion status
     const currentTask = await pool.query(
-      "SELECT completed FROM tasks WHERE id = $1",
+      "SELECT completed, google_event_id FROM tasks WHERE id = $1",
       [id],
     );
 
@@ -238,6 +255,11 @@ router.patch("/:id/toggle", async (req, res) => {
        WHERE id = $2 
        RETURNING *`,
       [newCompleted, id],
+    );
+
+    await syncCompletionToCalendar(
+      currentTask.rows[0].google_event_id,
+      newCompleted,
     );
 
     res.json({

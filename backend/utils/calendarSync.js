@@ -1,5 +1,10 @@
 import pool from "../db.js";
-import { getCalendarClient, getSyncState, upsertSyncState } from "./googleCalendar.js";
+import {
+  getCalendarClient,
+  getSyncState,
+  upsertSyncState,
+  DONE_PREFIX,
+} from "./googleCalendar.js";
 import { generateId } from "./helpers.js";
 
 const CALENDAR_ID = "primary";
@@ -25,7 +30,10 @@ const upsertTaskFromEvent = async (event) => {
     return;
   }
 
-  const title = event.summary || "(No title)";
+  const rawTitle = event.summary || "(No title)";
+  const title = rawTitle.startsWith(DONE_PREFIX)
+    ? rawTitle.slice(DONE_PREFIX.length)
+    : rawTitle;
   const startTime = event.start?.dateTime || event.start?.date;
   const timestamp = startTime ? new Date(startTime).getTime() : Date.now();
 
