@@ -5,6 +5,7 @@ import {
   isCalendarAuthorized,
 } from "../utils/googleAuth.js";
 import { getSyncState, verifyWebhookRequest } from "../utils/googleCalendar.js";
+import { syncCalendarEvents } from "../utils/calendarSync.js";
 
 const router = express.Router();
 
@@ -100,14 +101,31 @@ router.post("/webhook", async (req, res) => {
     console.log(
       `📅 Calendar webhook: change notification received (state=${resourceState})`,
     );
-    // TODO (Phase 3): trigger an events.list sync using the stored syncToken here.
+    const { processed } = await syncCalendarEvents();
+    console.log(`📅 Synced ${processed} changed event(s) into tasks`);
 
     res.status(200).end();
   } catch (error) {
     console.error("Error handling Calendar webhook:", error);
     // Still 200 so Google doesn't retry-storm us - the syncToken-based sync
-    // in Phase 3 will catch up on the next successful notification regardless.
+    // is idempotent and will catch up on the next successful notification regardless.
     res.status(200).end();
+  }
+});
+
+// POST /api/calendar/sync/trigger - manual sync, useful for testing without
+// waiting on a real Calendar change + webhook round-trip.
+router.post("/sync/trigger", async (req, res) => {
+  try {
+    const result = await syncCalendarEvents();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("Error running manual Calendar sync:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync Calendar events",
+      message: error.message,
+    });
   }
 });
 
