@@ -30,15 +30,21 @@ const upsertTaskFromEvent = async (event) => {
   const timestamp = startTime ? new Date(startTime).getTime() : Date.now();
 
   if (existing.rows.length === 0) {
+    const orderResult = await pool.query(
+      "SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM tasks",
+    );
+    const nextOrder = orderResult.rows[0].next_order;
+
     await pool.query(
-      `INSERT INTO tasks (id, title, timestamp, completed, meta, google_event_id)
-       VALUES ($1, $2, $3, false, $4, $5)`,
+      `INSERT INTO tasks (id, title, timestamp, completed, meta, google_event_id, display_order)
+       VALUES ($1, $2, $3, false, $4, $5, $6)`,
       [
         generateId(),
         title,
         timestamp,
         JSON.stringify({ source: "google_calendar" }),
         event.id,
+        nextOrder,
       ],
     );
     return;
