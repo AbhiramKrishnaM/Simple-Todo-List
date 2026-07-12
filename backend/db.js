@@ -72,6 +72,19 @@ export const initDatabase = async () => {
       )
     `);
 
+    // Create calendar_auth table (single row storing Google OAuth tokens)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS calendar_auth (
+        id SERIAL PRIMARY KEY,
+        refresh_token TEXT,
+        access_token TEXT,
+        access_token_expiry BIGINT,
+        scope TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log("Database tables initialized successfully");
   } catch (error) {
     console.error("Error initializing database:", error);

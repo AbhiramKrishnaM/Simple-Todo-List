@@ -5,6 +5,7 @@ import cron from "node-cron";
 import pool, { initDatabase } from "./db.js";
 import taskRoutes from "./routes/tasks.js";
 import settingsRoutes from "./routes/settings.js";
+import calendarRoutes from "./routes/calendar.js";
 
 dotenv.config();
 
@@ -52,6 +53,9 @@ app.use("/api/tasks", taskRoutes);
 
 // Settings routes
 app.use("/api/settings", settingsRoutes);
+
+// Google Calendar routes
+app.use("/api/calendar", calendarRoutes);
 
 // 404 handler
 app.use((req, res) => {
