@@ -36,6 +36,9 @@ const upsertTaskFromEvent = async (event) => {
     : rawTitle;
   const startTime = event.start?.dateTime || event.start?.date;
   const timestamp = startTime ? new Date(startTime).getTime() : Date.now();
+  // Calendar is the source of truth for its own description - mirrored into
+  // notes on every sync, same as the title.
+  const notes = event.description ?? "";
 
   if (existing.rows.length === 0) {
     const orderResult = await pool.query(
@@ -50,7 +53,7 @@ const upsertTaskFromEvent = async (event) => {
         generateId(),
         title,
         timestamp,
-        JSON.stringify({ source: "google_calendar" }),
+        JSON.stringify({ source: "google_calendar", notes }),
         event.id,
         nextOrder,
       ],
@@ -58,7 +61,11 @@ const upsertTaskFromEvent = async (event) => {
     return;
   }
 
-  const meta = { ...(existing.rows[0].meta || {}), source: "google_calendar" };
+  const meta = {
+    ...(existing.rows[0].meta || {}),
+    source: "google_calendar",
+    notes,
+  };
   await pool.query(
     `UPDATE tasks SET title = $1, timestamp = $2, meta = $3, updated_at = CURRENT_TIMESTAMP
      WHERE google_event_id = $4`,

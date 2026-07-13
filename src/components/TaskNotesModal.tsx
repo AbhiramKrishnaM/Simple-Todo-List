@@ -15,7 +15,7 @@ type TaskNotesModalProps = {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (taskId: string, notes: string) => void;
+  onSave: (taskId: string, title: string, notes: string) => void;
 };
 
 export default function TaskNotesModal({
@@ -24,29 +24,31 @@ export default function TaskNotesModal({
   onOpenChange,
   onSave,
 }: TaskNotesModalProps) {
+  const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
 
   React.useEffect(() => {
     if (task && open) {
+      setTitle(task.title);
       setNotes((task.meta?.notes as string) || "");
     }
   }, [task, open]);
 
   const handleSave = () => {
     if (task) {
-      onSave(task.id, notes);
+      onSave(task.id, title.trim() || task.title, notes);
       onOpenChange(false);
     }
   };
 
   const handleDownload = () => {
     if (!task) return;
-    const content = `# ${task.title}\n\n${notes}`;
+    const content = `# ${title || task.title}\n\n${notes}`;
     const blob = new Blob([content], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${task.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`;
+    a.download = `${(title || task.title).replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -57,7 +59,14 @@ export default function TaskNotesModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-xl break-words whitespace-normal pr-6">{task.title}</DialogTitle>
+          <DialogTitle asChild>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-xl font-semibold w-full pr-6 bg-transparent border-0 outline-none focus:ring-0 rounded px-0 py-0.5 focus:bg-gray-50 dark:focus:bg-gray-800/50 focus:px-2"
+              placeholder="Task title"
+            />
+          </DialogTitle>
           <DialogDescription>
             Add notes, steps, or additional details for this task. Supports Markdown formatting.
           </DialogDescription>

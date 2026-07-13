@@ -328,11 +328,11 @@ function ListPage() {
     setNotesModalOpen(true);
   }
 
-  async function handleNotesSave(taskId: string, notes: string) {
+  async function handleNotesSave(taskId: string, title: string, notes: string) {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
     try {
-      await updateTask(taskId, { meta: { ...task.meta, notes } });
+      await updateTask(taskId, { title, meta: { ...task.meta, notes } });
     } catch (err) {
       console.error("Failed to update notes:", err);
     }
