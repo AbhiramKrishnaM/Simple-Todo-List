@@ -4,7 +4,11 @@ import {
   handleOAuthCallback,
   isCalendarAuthorized,
 } from "../utils/googleAuth.js";
-import { getSyncState, verifyWebhookRequest } from "../utils/googleCalendar.js";
+import {
+  getSyncState,
+  verifyWebhookRequest,
+  upsertSyncState,
+} from "../utils/googleCalendar.js";
 import { syncCalendarEvents } from "../utils/calendarSync.js";
 
 const router = express.Router();
@@ -115,8 +119,16 @@ router.post("/webhook", async (req, res) => {
 
 // POST /api/calendar/sync/trigger - manual sync, useful for testing without
 // waiting on a real Calendar change + webhook round-trip.
+// Pass ?full=true to discard the current sync token first. Needed any time
+// the token's underlying request window is no longer trustworthy (e.g. it
+// was minted with filters that shouldn't have been used) - a plain sync
+// just replays that same stale token forever, since Calendar bakes the
+// originating request's filters into the token itself.
 router.post("/sync/trigger", async (req, res) => {
   try {
+    if (req.query.full === "true") {
+      await upsertSyncState({ sync_token: null });
+    }
     const result = await syncCalendarEvents();
     res.json({ success: true, ...result });
   } catch (error) {
