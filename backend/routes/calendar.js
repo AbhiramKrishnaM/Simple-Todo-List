@@ -9,7 +9,10 @@ import {
   verifyWebhookRequest,
   upsertSyncState,
 } from "../utils/googleCalendar.js";
-import { syncCalendarEvents } from "../utils/calendarSync.js";
+import {
+  syncCalendarEvents,
+  catchUpWindowedEvents,
+} from "../utils/calendarSync.js";
 
 const router = express.Router();
 
@@ -130,7 +133,12 @@ router.post("/sync/trigger", async (req, res) => {
       await upsertSyncState({ sync_token: null });
     }
     const result = await syncCalendarEvents();
-    res.json({ success: true, ...result });
+    const windowed = await catchUpWindowedEvents();
+    res.json({
+      success: true,
+      processed: result.processed,
+      windowedProcessed: windowed.processed,
+    });
   } catch (error) {
     console.error("Error running manual Calendar sync:", error);
     res.status(500).json({

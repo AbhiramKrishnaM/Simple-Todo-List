@@ -169,3 +169,38 @@ export const syncCalendarEvents = async () => {
 
   return { processed };
 };
+
+// Delta sync (above) only reports an event at the moment something about it
+// changes - it will never re-surface an event later just because time
+// passed and it's now inside the horizon. This is a separate, plain
+// "what's happening in the next SYNC_HORIZON_DAYS" query, run independently
+// of the change-tracking sync token (its own nextSyncToken/nextPageToken
+// cursor is deliberately discarded), so it catches anything that has newly
+// rolled into range regardless of when it was created.
+export const catchUpWindowedEvents = async () => {
+  const calendarClient = await getCalendarClient();
+  const horizonCutoff = Date.now() + SYNC_HORIZON_DAYS * 24 * 60 * 60 * 1000;
+
+  let pageToken;
+  let processed = 0;
+
+  while (true) {
+    const response = await calendarClient.events.list({
+      calendarId: CALENDAR_ID,
+      singleEvents: true,
+      timeMin: new Date().toISOString(),
+      timeMax: new Date(horizonCutoff).toISOString(),
+      ...(pageToken ? { pageToken } : {}),
+    });
+
+    for (const event of response.data.items ?? []) {
+      await upsertTaskFromEvent(event, horizonCutoff);
+      processed++;
+    }
+
+    if (!response.data.nextPageToken) break;
+    pageToken = response.data.nextPageToken;
+  }
+
+  return { processed };
+};

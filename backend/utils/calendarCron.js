@@ -5,7 +5,7 @@ import {
   registerWatchChannel,
   isChannelExpiringSoon,
 } from "./googleCalendar.js";
-import { syncCalendarEvents } from "./calendarSync.js";
+import { syncCalendarEvents, catchUpWindowedEvents } from "./calendarSync.js";
 
 const renewWatchChannelIfNeeded = async () => {
   try {
@@ -55,6 +55,14 @@ const pollCalendarEvents = async () => {
     const { processed } = await syncCalendarEvents();
     if (processed > 0) {
       console.log(`📅 Fallback poll synced ${processed} calendar event(s)`);
+    }
+
+    // Catches anything that has newly rolled inside the sync horizon -
+    // delta sync alone can't do this, since it only reports an event once,
+    // at the moment something about it actually changes.
+    const { processed: inWindow } = await catchUpWindowedEvents();
+    if (inWindow > 0) {
+      console.log(`📅 Horizon catch-up checked ${inWindow} in-window event(s)`);
     }
   } catch (err) {
     console.error("❌ Error during fallback Calendar poll:", err);
