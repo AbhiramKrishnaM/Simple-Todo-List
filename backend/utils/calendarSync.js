@@ -14,7 +14,7 @@ const CALENDAR_ID = "primary";
 // occurrence of every recurring event - years of daily standups included.
 const SYNC_HORIZON_DAYS = 30;
 
-const upsertTaskFromEvent = async (event) => {
+const upsertTaskFromEvent = async (event, horizonCutoff) => {
   const existing = await pool.query(
     "SELECT id, meta FROM tasks WHERE google_event_id = $1",
     [event.id],
@@ -46,6 +46,12 @@ const upsertTaskFromEvent = async (event) => {
   const notes = event.description ?? "";
 
   if (existing.rows.length === 0) {
+    // Only skip creating brand-new tasks for events beyond the horizon -
+    // they'll get created on a later sync once they're in range. An
+    // already-existing task is always updated below (even if a reschedule
+    // pushed it out of range), so the horizon prune can catch it correctly.
+    if (timestamp > horizonCutoff) return;
+
     const orderResult = await pool.query(
       "SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM tasks",
     );
@@ -117,14 +123,14 @@ export const syncCalendarEvents = async () => {
       : {
           calendarId: CALENDAR_ID,
           singleEvents: true,
-          // First-ever sync (or a resync after the token died) only looks
-          // forward, and only out to SYNC_HORIZON_DAYS - we don't want to
-          // backfill years of past events, or import years of future
-          // recurring instances, as tasks.
+          // First-ever sync only looks forward - we don't want to backfill
+          // years of past events as tasks. Deliberately no timeMax here:
+          // Calendar freezes whatever window generated a sync token, so
+          // bounding this request would permanently cap what future
+          // syncToken-based requests can ever return. The horizon is
+          // enforced per-event below instead, which keeps the token itself
+          // unbounded and correct indefinitely.
           timeMin: new Date().toISOString(),
-          timeMax: new Date(
-            Date.now() + SYNC_HORIZON_DAYS * 24 * 60 * 60 * 1000,
-          ).toISOString(),
           ...(pageToken ? { pageToken } : {}),
         };
 
@@ -142,8 +148,9 @@ export const syncCalendarEvents = async () => {
       throw err;
     }
 
+    const horizonCutoff = Date.now() + SYNC_HORIZON_DAYS * 24 * 60 * 60 * 1000;
     for (const event of response.data.items ?? []) {
-      await upsertTaskFromEvent(event);
+      await upsertTaskFromEvent(event, horizonCutoff);
       processed++;
     }
 
