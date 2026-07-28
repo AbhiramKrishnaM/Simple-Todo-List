@@ -184,11 +184,43 @@ function ListPage() {
     React.useState<Priority>("medium");
   const [notesModalOpen, setNotesModalOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+  const [todayOnly, setTodayOnly] = React.useState(true);
+
+  // Ticks periodically so the today/tomorrow boundary rolls over at
+  // midnight for anyone who leaves the tab open overnight.
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const interval = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Local-timezone start of tomorrow - anything timestamped at or after
+  // this is a future occurrence (e.g. a recurring calendar event synced
+  // ahead of time) and gets hidden until its own day arrives.
+  const startOfTomorrow = React.useMemo(() => {
+    const now = new Date(nowTick);
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    ).getTime();
+  }, [nowTick]);
 
   React.useEffect(() => {
     fetchTasks();
     fetchSettings();
   }, [fetchTasks, fetchSettings]);
+
+  const futureCount = React.useMemo(
+    () => tasks.filter((t) => t.timestamp >= startOfTomorrow).length,
+    [tasks, startOfTomorrow],
+  );
+
+  const visibleTasks = React.useMemo(
+    () =>
+      todayOnly ? tasks.filter((t) => t.timestamp < startOfTomorrow) : tasks,
+    [tasks, todayOnly, startOfTomorrow],
+  );
 
   const tasksByPriority = React.useMemo(() => {
     const byPriority: Record<Priority, Task[]> = {
@@ -199,7 +231,7 @@ function ListPage() {
       queue: [],
     };
 
-    tasks.forEach((t) => {
+    visibleTasks.forEach((t) => {
       byPriority[getPriority(t)].push(t);
     });
 
@@ -215,7 +247,7 @@ function ListPage() {
     });
 
     return byPriority;
-  }, [tasks]);
+  }, [visibleTasks]);
 
   const uncompletedTasks = React.useMemo(
     () =>
@@ -425,6 +457,40 @@ function ListPage() {
         </div>
       )}
 
+      {/* Today-only filter */}
+      <div className="flex-shrink-0 flex items-center justify-end gap-2 px-6 pt-3">
+        {todayOnly && futureCount > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {futureCount} upcoming {futureCount === 1 ? "ticket" : "tickets"}{" "}
+            hidden
+          </span>
+        )}
+        <label
+          htmlFor="today-only-toggle"
+          className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+        >
+          Today only
+          <button
+            id="today-only-toggle"
+            type="button"
+            role="switch"
+            aria-checked={todayOnly}
+            onClick={() => setTodayOnly((prev) => !prev)}
+            className={cn(
+              "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+              todayOnly ? "bg-primary" : "bg-muted",
+            )}
+          >
+            <span
+              className={cn(
+                "pointer-events-none inline-block size-4 transform rounded-full bg-white shadow ring-0 transition-transform",
+                todayOnly ? "translate-x-4" : "translate-x-0",
+              )}
+            />
+          </button>
+        </label>
+      </div>
+
       {/* Kanban board */}
       <div className="flex flex-1 min-h-0 overflow-x-auto px-6 pb-4 pt-4">
         <DndContext
@@ -475,9 +541,9 @@ function ListPage() {
       </div>
 
       {/* Footer */}
-      {tasks.length > 0 && (() => {
-        const total = tasks.length;
-        const completed = tasks.filter((t) => t.completed).length;
+      {visibleTasks.length > 0 && (() => {
+        const total = visibleTasks.length;
+        const completed = visibleTasks.filter((t) => t.completed).length;
         const pct = Math.round((completed / total) * 100);
         return (
           <div className="flex-shrink-0 px-6 py-3 border-t border-border/40 flex flex-col gap-1.5">

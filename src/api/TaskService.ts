@@ -42,7 +42,12 @@ class TaskService {
         return {
           id: v.id,
           title: v.title,
-          timestamp: v.created_at ? new Date(v.created_at).getTime() : 0,
+          timestamp:
+            typeof v.timestamp === "number" && !Number.isNaN(v.timestamp)
+              ? v.timestamp
+              : v.created_at
+                ? new Date(v.created_at).getTime()
+                : 0,
           completed: v.completed,
           display_order: v.display_order,
           meta,

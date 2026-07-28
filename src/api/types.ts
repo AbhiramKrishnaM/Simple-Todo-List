@@ -28,6 +28,7 @@ export interface TaskListItem {
   title: string;
   completed: boolean;
   meta?: Record<string, unknown>;
+  timestamp?: number;
   created_at: string;
   updated_at: string;
   display_order?: number;

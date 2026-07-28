@@ -34,6 +34,7 @@ router.get("/", async (req, res) => {
         title: row.title,
         completed: row.completed,
         meta,
+        timestamp: Number(row.timestamp),
         created_at: row.created_at,
         updated_at: row.updated_at,
         display_order: row.display_order,
