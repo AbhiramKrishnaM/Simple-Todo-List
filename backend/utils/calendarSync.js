@@ -8,6 +8,11 @@ import {
 import { generateId } from "./helpers.js";
 
 const CALENDAR_ID = "primary";
+// Bounds how far into the future a full resync (no sync token yet, or the
+// previous one expired/was revoked) will pull events. Without this, a lost
+// token turns the next resync into an unbounded pull of every future
+// occurrence of every recurring event - years of daily standups included.
+const SYNC_HORIZON_DAYS = 30;
 
 const upsertTaskFromEvent = async (event) => {
   const existing = await pool.query(
@@ -73,6 +78,24 @@ const upsertTaskFromEvent = async (event) => {
   );
 };
 
+// Prunes calendar-sourced tasks that fall outside the sync horizon. Mainly
+// guards against a resync that happened before this horizon existed (or any
+// future regression) leaving behind years of future recurring instances -
+// safe to run on every sync since it only ever removes rows that shouldn't
+// exist yet and will be recreated by a normal sync once they're in range.
+const pruneOutOfHorizonTasks = async () => {
+  const cutoff = Date.now() + SYNC_HORIZON_DAYS * 24 * 60 * 60 * 1000;
+  const result = await pool.query(
+    `DELETE FROM tasks WHERE meta->>'source' = 'google_calendar' AND timestamp > $1 RETURNING id`,
+    [cutoff],
+  );
+  if (result.rows.length > 0) {
+    console.log(
+      `📅 Pruned ${result.rows.length} out-of-horizon calendar task(s)`,
+    );
+  }
+};
+
 // Pulls everything changed since the last sync (or does a full sync if we
 // don't have a cursor yet / it's gone stale) and upserts a task per event.
 export const syncCalendarEvents = async () => {
@@ -94,9 +117,14 @@ export const syncCalendarEvents = async () => {
       : {
           calendarId: CALENDAR_ID,
           singleEvents: true,
-          // First-ever sync only looks forward - we don't want to backfill
-          // years of past events as tasks.
+          // First-ever sync (or a resync after the token died) only looks
+          // forward, and only out to SYNC_HORIZON_DAYS - we don't want to
+          // backfill years of past events, or import years of future
+          // recurring instances, as tasks.
           timeMin: new Date().toISOString(),
+          timeMax: new Date(
+            Date.now() + SYNC_HORIZON_DAYS * 24 * 60 * 60 * 1000,
+          ).toISOString(),
           ...(pageToken ? { pageToken } : {}),
         };
 
@@ -129,6 +157,8 @@ export const syncCalendarEvents = async () => {
     }
     break;
   }
+
+  await pruneOutOfHorizonTasks();
 
   return { processed };
 };
