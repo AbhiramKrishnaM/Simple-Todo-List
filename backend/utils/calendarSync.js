@@ -85,7 +85,12 @@ export const syncCalendarEvents = async () => {
 
   while (true) {
     const params = syncToken
-      ? { calendarId: CALENDAR_ID, syncToken, ...(pageToken ? { pageToken } : {}) }
+      ? {
+          calendarId: CALENDAR_ID,
+          syncToken,
+          singleEvents: true,
+          ...(pageToken ? { pageToken } : {}),
+        }
       : {
           calendarId: CALENDAR_ID,
           singleEvents: true,

@@ -5,6 +5,7 @@ import {
   registerWatchChannel,
   isChannelExpiringSoon,
 } from "./googleCalendar.js";
+import { syncCalendarEvents } from "./calendarSync.js";
 
 const renewWatchChannelIfNeeded = async () => {
   try {
@@ -43,5 +44,31 @@ export const startCalendarWatchRenewalJob = () => {
 
   console.log(
     "⏰ Scheduled Calendar watch channel renewal check to run daily at 03:00 UTC",
+  );
+};
+
+const pollCalendarEvents = async () => {
+  try {
+    const authorized = await isCalendarAuthorized();
+    if (!authorized) return;
+
+    const { processed } = await syncCalendarEvents();
+    if (processed > 0) {
+      console.log(`📅 Fallback poll synced ${processed} calendar event(s)`);
+    }
+  } catch (err) {
+    console.error("❌ Error during fallback Calendar poll:", err);
+  }
+};
+
+export const startCalendarPollingJob = () => {
+  pollCalendarEvents();
+
+  cron.schedule("*/15 * * * *", pollCalendarEvents, {
+    scheduled: true,
+  });
+
+  console.log(
+    "⏰ Scheduled Calendar fallback poll to run every 15 minutes",
   );
 };

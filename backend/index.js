@@ -6,7 +6,10 @@ import pool, { initDatabase } from "./db.js";
 import taskRoutes from "./routes/tasks.js";
 import settingsRoutes from "./routes/settings.js";
 import calendarRoutes from "./routes/calendar.js";
-import { startCalendarWatchRenewalJob } from "./utils/calendarCron.js";
+import {
+  startCalendarWatchRenewalJob,
+  startCalendarPollingJob,
+} from "./utils/calendarCron.js";
 
 dotenv.config();
 
@@ -82,10 +85,10 @@ const cleanupCompletedTasks = async () => {
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
     const result = await pool.query(
-      `DELETE FROM tasks 
-       WHERE completed = true 
-       AND completed_at IS NOT NULL 
-       AND completed_at < $1 
+      `DELETE FROM tasks
+       WHERE completed = true
+       AND completed_at IS NOT NULL
+       AND completed_at < $1
        RETURNING id, title`,
       [fourHoursAgo],
     );
@@ -122,6 +125,7 @@ const startServer = async () => {
     // Register/renew the Google Calendar watch channel (checks immediately
     // on boot, then daily) so syncing resumes correctly after a restart
     startCalendarWatchRenewalJob();
+    startCalendarPollingJob();
 
     // Start server
     app.listen(PORT, () => {
