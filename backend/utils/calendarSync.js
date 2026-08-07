@@ -14,23 +14,47 @@ const CALENDAR_ID = "primary";
 // occurrence of every recurring event - years of daily standups included.
 const SYNC_HORIZON_DAYS = 30;
 
-const upsertTaskFromEvent = async (event, horizonCutoff) => {
-  const existing = await pool.query(
+// Looks a task up by its own google_event_id first, then falls back to
+// checking whether this event id was previously folded into another task by
+// dedupeCalendarTasks() (see below). Without the fallback, a duplicate event
+// that got merged away would just get re-created the next time it's synced,
+// undoing the merge on every poll.
+const findExistingTask = async (eventId) => {
+  const byOwnId = await pool.query(
     "SELECT id, meta FROM tasks WHERE google_event_id = $1",
-    [event.id],
+    [eventId],
   );
+  if (byOwnId.rows.length > 0) {
+    return { row: byOwnId.rows[0], viaMerge: false };
+  }
+
+  const byMerge = await pool.query(
+    `SELECT id, meta FROM tasks WHERE meta->'merged_event_ids' @> to_jsonb($1::text)`,
+    [eventId],
+  );
+  if (byMerge.rows.length > 0) {
+    return { row: byMerge.rows[0], viaMerge: true };
+  }
+
+  return null;
+};
+
+const upsertTaskFromEvent = async (event, horizonCutoff) => {
+  const existing = await findExistingTask(event.id);
 
   if (event.status === "cancelled") {
-    if (existing.rows.length === 0) {
-      // Created and cancelled between syncs - no task was ever created for it.
-      return;
-    }
-    const meta = { ...(existing.rows[0].meta || {}), cancelled_by_calendar: true };
+    // No task was ever created for it, or it's a merged-away duplicate that
+    // got cleaned up on the Calendar side - either way there's nothing on
+    // our end that should react to this (in particular, cancelling a
+    // duplicate must never complete the survivor it was merged into).
+    if (!existing || existing.viaMerge) return;
+
+    const meta = { ...(existing.row.meta || {}), cancelled_by_calendar: true };
     await pool.query(
       `UPDATE tasks
        SET completed = true, completed_at = CURRENT_TIMESTAMP, meta = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE google_event_id = $2`,
-      [JSON.stringify(meta), event.id],
+       WHERE id = $2`,
+      [JSON.stringify(meta), existing.row.id],
     );
     return;
   }
@@ -45,7 +69,7 @@ const upsertTaskFromEvent = async (event, horizonCutoff) => {
   // notes on every sync, same as the title.
   const notes = event.description ?? "";
 
-  if (existing.rows.length === 0) {
+  if (!existing) {
     // Only skip creating brand-new tasks for events beyond the horizon -
     // they'll get created on a later sync once they're in range. An
     // already-existing task is always updated below (even if a reschedule
@@ -73,14 +97,14 @@ const upsertTaskFromEvent = async (event, horizonCutoff) => {
   }
 
   const meta = {
-    ...(existing.rows[0].meta || {}),
+    ...(existing.row.meta || {}),
     source: "google_calendar",
     notes,
   };
   await pool.query(
     `UPDATE tasks SET title = $1, timestamp = $2, meta = $3, updated_at = CURRENT_TIMESTAMP
-     WHERE google_event_id = $4`,
-    [title, timestamp, JSON.stringify(meta), event.id],
+     WHERE id = $4`,
+    [title, timestamp, JSON.stringify(meta), existing.row.id],
   );
 };
 
@@ -99,6 +123,57 @@ const pruneOutOfHorizonTasks = async () => {
     console.log(
       `📅 Pruned ${result.rows.length} out-of-horizon calendar task(s)`,
     );
+  }
+};
+
+// Folds together calendar-sourced tasks that share a title and a local
+// calendar day. This happens on Calendar's side, not ours: dragging a
+// single occurrence of a recurring event sometimes leaves the original
+// occurrence in place *and* creates a new event at the dropped time,
+// instead of cleanly rescheduling it - each is a genuinely distinct Google
+// event id, so the normal upsert (correctly) creates a task per id. This
+// pass keeps the oldest task per (title, day) group as the survivor and
+// removes the rest, remembering their event ids on the survivor so
+// findExistingTask() recognizes them later instead of recreating the row
+// that was just removed.
+const dedupeCalendarTasks = async () => {
+  const { rows } = await pool.query(
+    `SELECT id, title, timestamp, meta, google_event_id FROM tasks
+     WHERE meta->>'source' = 'google_calendar' AND google_event_id IS NOT NULL
+     ORDER BY created_at ASC`,
+  );
+
+  const groups = new Map();
+  for (const row of rows) {
+    const day = new Date(Number(row.timestamp)).toISOString().slice(0, 10);
+    const key = `${row.title}::${day}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+
+  let mergedCount = 0;
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+
+    const [survivor, ...duplicates] = group;
+    const mergedIds = new Set(survivor.meta?.merged_event_ids || []);
+    for (const dup of duplicates) {
+      mergedIds.add(dup.google_event_id);
+    }
+
+    const meta = { ...survivor.meta, merged_event_ids: [...mergedIds] };
+    await pool.query(
+      `UPDATE tasks SET meta = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [JSON.stringify(meta), survivor.id],
+    );
+    await pool.query(`DELETE FROM tasks WHERE id = ANY($1)`, [
+      duplicates.map((d) => d.id),
+    ]);
+    mergedCount += duplicates.length;
+  }
+
+  if (mergedCount > 0) {
+    console.log(`📅 Merged ${mergedCount} duplicate calendar task(s)`);
   }
 };
 
@@ -166,6 +241,7 @@ export const syncCalendarEvents = async () => {
   }
 
   await pruneOutOfHorizonTasks();
+  await dedupeCalendarTasks();
 
   return { processed };
 };
@@ -201,6 +277,8 @@ export const catchUpWindowedEvents = async () => {
     if (!response.data.nextPageToken) break;
     pageToken = response.data.nextPageToken;
   }
+
+  await dedupeCalendarTasks();
 
   return { processed };
 };
